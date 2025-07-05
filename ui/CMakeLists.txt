@@ -1,3 +1,8 @@
+configure_file(
+    "${CMAKE_SOURCE_DIR}/ui/configure.h.in"
+    "${CMAKE_SOURCE_DIR}/ui/configure.h"
+)
+
 file(GLOB_RECURSE UI_FILES "./*.ui")
 
 add_library("${EXEC_NAME}_UI" INTERFACE)

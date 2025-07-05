@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(srt_editor VERSION 1.0.0 LANGUAGES C CXX)
+project("SRT Editor free" VERSION 1.0.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
