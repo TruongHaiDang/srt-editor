@@ -12,6 +12,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     connect(ui->actionClose, &QAction::triggered, this, &QApplication::quit);
     connect(ui->actionSoftware_Author, &QAction::triggered, this, &MainWindow::openAbout);
     connect(ui->actionAdd_subtitle, &QAction::triggered, this, &MainWindow::addSubtitle);
+    connect(ui->actionClear_subtitles, &QAction::triggered, this, &MainWindow::clearSubtitles);
+    connect(ui->actionRemove_subtitle, &QAction::triggered, this, &MainWindow::removeSubtitle);
+
+    statusBar()->showMessage("Ready");
 }
 
 MainWindow::~MainWindow()
@@ -46,4 +50,39 @@ void MainWindow::addSubtitle()
     newSubtitle->setOrder(latestOrder);
     subtitleContainerLayout->addWidget(newSubtitle);
     subtitles.append(newSubtitle);
+    statusBar()->showMessage("New subtitle is added.");
+}
+
+void MainWindow::clearLayout(QLayout *layout)
+{
+    if (!layout) return;
+
+    while (QLayoutItem *item = layout->takeAt(0))
+    {
+        if (QLayout *childLayout = item->layout())
+        {
+            clearLayout(childLayout);
+            delete childLayout;
+        };
+
+        if (QWidget *widget = item->widget())
+        {
+            widget->hide();
+            widget->deleteLater();
+        };
+
+        delete item;
+    }
+}
+
+void MainWindow::clearSubtitles()
+{
+    subtitles.clear();
+    this->clearLayout(subtitleContainerLayout);
+    statusBar()->showMessage("All subtitles are cleared.");
+}
+
+void MainWindow::removeSubtitle()
+{
+
 }

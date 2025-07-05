@@ -16,6 +16,9 @@
 #include <QDesktopServices>
 #include <QList>
 #include <QVBoxLayout>
+#include <QStatusBar>
+#include <QLayout>
+#include <QLayoutItem>
 
 namespace Ui {
     class MainWindow;
@@ -31,8 +34,11 @@ private:
     QVBoxLayout *subtitleContainerLayout = new QVBoxLayout();
     QList<SubtitleItem*> subtitles;
 
+    void clearLayout(QLayout *layout);
     void openAbout();
     void addSubtitle();
+    void removeSubtitle();
+    void clearSubtitles();
 
 public:
     explicit MainWindow(QWidget *parent = nullptr);
