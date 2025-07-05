@@ -11,7 +11,11 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>SRT Editor free v1.0.0</string>
+  </property>
+  <property name="windowIcon">
+   <iconset resource="srt_editor_resources.qrc">
+    <normaloff>:/mainwindow/assets/icon.png</normaloff>:/mainwindow/assets/icon.png</iconset>
   </property>
   <widget class="QWidget" name="centralwidget"/>
   <widget class="QMenuBar" name="menubar">
@@ -23,9 +27,121 @@
      <height>24</height>
     </rect>
    </property>
+   <widget class="QMenu" name="menuFile">
+    <property name="title">
+     <string>File</string>
+    </property>
+    <addaction name="actionOpen"/>
+    <addaction name="actionSave"/>
+    <addaction name="actionSave_As"/>
+    <addaction name="separator"/>
+    <addaction name="actionExport"/>
+    <addaction name="separator"/>
+    <addaction name="actionClose"/>
+   </widget>
+   <widget class="QMenu" name="menuEdit">
+    <property name="title">
+     <string>Edit</string>
+    </property>
+    <addaction name="actionAdd_subtitle"/>
+    <addaction name="actionRemove_subtitle"/>
+    <addaction name="actionClear_subtitles"/>
+   </widget>
+   <widget class="QMenu" name="menuAbout">
+    <property name="title">
+     <string>About</string>
+    </property>
+    <addaction name="actionSoftware_Author"/>
+   </widget>
+   <widget class="QMenu" name="menuSpeech">
+    <property name="title">
+     <string>Speech</string>
+    </property>
+    <widget class="QMenu" name="menuText_to_Speech">
+     <property name="title">
+      <string>Text to Speech</string>
+     </property>
+     <addaction name="actionAll"/>
+     <addaction name="actionCurrent_subtitle"/>
+    </widget>
+    <addaction name="actionLanguages"/>
+    <addaction name="menuText_to_Speech"/>
+    <addaction name="actionOutput_folder"/>
+   </widget>
+   <addaction name="menuFile"/>
+   <addaction name="menuEdit"/>
+   <addaction name="menuSpeech"/>
+   <addaction name="menuAbout"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
+  <action name="actionOpen">
+   <property name="text">
+    <string>Open</string>
+   </property>
+  </action>
+  <action name="actionSave">
+   <property name="text">
+    <string>Save</string>
+   </property>
+  </action>
+  <action name="actionSave_As">
+   <property name="text">
+    <string>Save As...</string>
+   </property>
+  </action>
+  <action name="actionExport">
+   <property name="text">
+    <string>Export</string>
+   </property>
+  </action>
+  <action name="actionClose">
+   <property name="text">
+    <string>Close</string>
+   </property>
+  </action>
+  <action name="actionAdd_subtitle">
+   <property name="text">
+    <string>Add subtitle</string>
+   </property>
+  </action>
+  <action name="actionRemove_subtitle">
+   <property name="text">
+    <string>Remove subtitle</string>
+   </property>
+  </action>
+  <action name="actionClear_subtitles">
+   <property name="text">
+    <string>Clear subtitles</string>
+   </property>
+  </action>
+  <action name="actionLanguages">
+   <property name="text">
+    <string>Languages</string>
+   </property>
+  </action>
+  <action name="actionAll">
+   <property name="text">
+    <string>All</string>
+   </property>
+  </action>
+  <action name="actionCurrent_subtitle">
+   <property name="text">
+    <string>Current subtitle</string>
+   </property>
+  </action>
+  <action name="actionOutput_folder">
+   <property name="text">
+    <string>Output folder</string>
+   </property>
+  </action>
+  <action name="actionSoftware_Author">
+   <property name="text">
+    <string>Software&amp;Author</string>
+   </property>
+  </action>
  </widget>
- <resources/>
+ <resources>
+  <include location="srt_editor_resources.qrc"/>
+ </resources>
  <connections/>
 </ui>

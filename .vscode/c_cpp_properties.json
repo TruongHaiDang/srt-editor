@@ -6,7 +6,7 @@
                 "${workspaceFolder}/**",
                 "${workspaceFolder}/ui/**",
                 "/usr/include/x86_64-linux-gnu/qt6/**",
-                "${workspaceFolder}/build/src/**"
+                "${workspaceFolder}/build/src/srt_editor_autogen/include/**"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/clang-18",
