@@ -1,0 +1,11 @@
+1
+00:00:01,000 --> 00:00:04,000
+Hello, welcome to the video.
+
+2
+00:00:05,500 --> 00:00:08,000
+Today, we'll learn about Qt and C++.
+
+3
+00:00:09,000 --> 00:00:12,000
+Don't forget to subscribe for more tutorials!

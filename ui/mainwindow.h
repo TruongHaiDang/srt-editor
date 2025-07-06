@@ -41,6 +41,7 @@ private:
     QVBoxLayout *subtitleContainerLayout = new QVBoxLayout();
     QList<SubtitleItem*> subtitles;
     QList<SubtitleItem*> selectedSubtitles;
+    QString srtFilePath;
 
     void clearLayout(QLayout *layout);
     void openAbout();
@@ -50,6 +51,8 @@ private:
     void selectOutputSpeechDir();
     void setLanguage();
     void appendOrRemoveSelectedSubtitle(int state);
+    void openSrtFile();
+    void exportSrtFile();
 
 public:
     explicit MainWindow(QWidget *parent = nullptr);

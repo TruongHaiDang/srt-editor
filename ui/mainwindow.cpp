@@ -1,4 +1,5 @@
 #include "mainwindow.h"
+#include <QRegularExpression>
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow)
 {
@@ -31,6 +32,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     connect(ui->actionClear_subtitles, &QAction::triggered, this, &MainWindow::clearSubtitles);
     connect(ui->actionRemove_subtitle, &QAction::triggered, this, &MainWindow::removeSubtitle);
     connect(ui->actionOutput_folder, &QAction::triggered, this, &MainWindow::selectOutputSpeechDir);
+    connect(ui->actionOpen, &QAction::triggered, this, &MainWindow::openSrtFile);
+    connect(ui->actionExport, &QAction::triggered, this, &MainWindow::exportSrtFile);
 
     statusBar()->showMessage("Ready");
 }
@@ -102,7 +105,8 @@ void MainWindow::clearSubtitles()
 void MainWindow::removeSubtitle()
 {
     // Xóa các subtitle được chọn khỏi layout và danh sách subtitles
-    for (SubtitleItem* item : selectedSubtitles) {
+    for (SubtitleItem *item : selectedSubtitles)
+    {
         subtitles.removeAll(item);
         subtitleContainerLayout->removeWidget(item);
         item->deleteLater();
@@ -110,7 +114,8 @@ void MainWindow::removeSubtitle()
     selectedSubtitles.clear();
 
     // Cập nhật lại order cho các subtitle còn lại
-    for (int i = 0; i < subtitles.size(); ++i) {
+    for (int i = 0; i < subtitles.size(); ++i)
+    {
         subtitles[i]->setOrder(i);
     }
 
@@ -123,26 +128,28 @@ void MainWindow::selectOutputSpeechDir()
         this,
         "Select the output folder for speech mp3 files",
         QDir::homePath(),
-        QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks
-    );
+        QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
     statusBar()->showMessage("Output dir: " + this->outputSpeechDir);
 }
 
 void MainWindow::setLanguage()
 {
-    QAction *action = qobject_cast<QAction*>(this->sender());
-    if (!action) return;
+    QAction *action = qobject_cast<QAction *>(this->sender());
+    if (!action)
+        return;
     selectedLanguage = action->data().toString();
     statusBar()->showMessage("Selected language: " + selectedLanguage);
 }
 
 void MainWindow::appendOrRemoveSelectedSubtitle(int state)
 {
-    QCheckBox *checkbox = qobject_cast<QCheckBox*>(sender());
-    if (!checkbox) return;
+    QCheckBox *checkbox = qobject_cast<QCheckBox *>(sender());
+    if (!checkbox)
+        return;
 
-    SubtitleItem *item = qobject_cast<SubtitleItem*>(checkbox->parentWidget());
-    if (!item) return;
+    SubtitleItem *item = qobject_cast<SubtitleItem *>(checkbox->parentWidget());
+    if (!item)
+        return;
 
     QUuid uuid = item->getUuid();
 
@@ -150,22 +157,131 @@ void MainWindow::appendOrRemoveSelectedSubtitle(int state)
     {
         // Thêm vào danh sách nếu chưa có
         bool exists = false;
-        for (SubtitleItem* s : selectedSubtitles) {
-            if (s->getUuid() == uuid) {
+        for (SubtitleItem *s : selectedSubtitles)
+        {
+            if (s->getUuid() == uuid)
+            {
                 exists = true;
                 break;
             }
         }
-        if (!exists) selectedSubtitles.append(item);
+        if (!exists)
+            selectedSubtitles.append(item);
     }
     else if (state == Qt::Unchecked)
     {
         // Xóa khỏi danh sách nếu có
-        for (int i = 0; i < selectedSubtitles.size(); ++i) {
-            if (selectedSubtitles[i]->getUuid() == uuid) {
+        for (int i = 0; i < selectedSubtitles.size(); ++i)
+        {
+            if (selectedSubtitles[i]->getUuid() == uuid)
+            {
                 selectedSubtitles.removeAt(i);
                 break;
             }
         }
     }
+}
+
+void MainWindow::openSrtFile()
+{
+    QString filePath = QFileDialog::getOpenFileName(
+        this,
+        "Open SRT File",
+        QDir::homePath(),
+        "SubRip Subtitle (*.srt);;All Files (*)"
+    );
+    if (filePath.isEmpty()) return;
+
+    this->srtFilePath = filePath;
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        statusBar()->showMessage("Cannot open file: " + filePath);
+        return;
+    }
+
+    QTextStream in(&file);
+    QString srtContent = in.readAll();
+    file.close();
+
+    // Xóa các subtitle hiện tại
+    subtitles.clear();
+    clearLayout(subtitleContainerLayout);
+
+    // Phân tích từng block subtitle
+    QStringList blocks = srtContent.split(QRegularExpression("\n\s*\n"), Qt::SkipEmptyParts);
+    int order = 0;
+    for (const QString &block : blocks) {
+        QStringList lines = block.split('\n', Qt::SkipEmptyParts);
+        if (lines.size() < 3) continue;
+
+        QString timeLine = lines[1].trimmed();
+        QRegularExpression timeRx("([0-9]{2}):([0-9]{2}):([0-9]{2}),([0-9]{3}) --> ([0-9]{2}):([0-9]{2}):([0-9]{2}),([0-9]{3})");
+        QRegularExpressionMatch match = timeRx.match(timeLine);
+        if (!match.hasMatch()) continue;
+
+        SubtitleItem *item = new SubtitleItem();
+        item->setOrder(order++);
+        item->setStartHour(match.captured(1).toInt());
+        item->setStartMinute(match.captured(2).toInt());
+        item->setStartSecond(match.captured(3).toInt());
+        item->setStartMillisecond(match.captured(4).toInt());
+        item->setEndHour(match.captured(5).toInt());
+        item->setEndMinute(match.captured(6).toInt());
+        item->setEndSecond(match.captured(7).toInt());
+        item->setEndMillisecond(match.captured(8).toInt());
+
+        QString content;
+        for (int i = 2; i < lines.size(); ++i) {
+            if (i > 2) content += "\n";
+            content += lines[i];
+        }
+        item->setContent(content);
+
+        connect(item->getSelectedCheckbox(), &QCheckBox::stateChanged, this, &MainWindow::appendOrRemoveSelectedSubtitle);
+        subtitleContainerLayout->addWidget(item);
+        subtitles.append(item);
+    }
+
+    statusBar()->showMessage("Opened: " + filePath);
+}
+
+void MainWindow::exportSrtFile()
+{
+    if (subtitles.isEmpty()) {
+        statusBar()->showMessage("No subtitles to export.");
+        return;
+    }
+
+    QString filePath = QFileDialog::getSaveFileName(
+        this,
+        "Export SRT File",
+        QDir::homePath(),
+        "SubRip Subtitle (*.srt);;All Files (*)"
+    );
+    if (filePath.isEmpty()) return;
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        statusBar()->showMessage("Cannot write file: " + filePath);
+        return;
+    }
+
+    QTextStream out(&file);
+    for (int i = 0; i < subtitles.size(); ++i) {
+        SubtitleItem* item = subtitles[i];
+        out << QString::number(i + 1) << "\n";
+        out << QString("%1:%2:%3,%4 --> %5:%6:%7,%8\n")
+            .arg(item->getStartHour(), 2, 10, QChar('0'))
+            .arg(item->getStartMinute(), 2, 10, QChar('0'))
+            .arg(item->getStartSecond(), 2, 10, QChar('0'))
+            .arg(item->getStartMillisecond(), 3, 10, QChar('0'))
+            .arg(item->getEndHour(), 2, 10, QChar('0'))
+            .arg(item->getEndMinute(), 2, 10, QChar('0'))
+            .arg(item->getEndSecond(), 2, 10, QChar('0'))
+            .arg(item->getEndMillisecond(), 3, 10, QChar('0'));
+        out << item->getContent() << "\n\n";
+    }
+    file.close();
+    statusBar()->showMessage("Exported: " + filePath);
 }
