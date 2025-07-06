@@ -7,6 +7,7 @@
 #include "configure.h"
 #include <sstream>
 #include <fstream>
+#include "ExportValidator.h"
 
 #include <string>
 #include <QString>

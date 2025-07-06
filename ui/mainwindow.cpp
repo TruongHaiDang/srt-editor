@@ -253,6 +253,37 @@ void MainWindow::exportSrtFile()
         return;
     }
 
+    ExportValidator validator;
+    int prevEndMs = -1;
+    for (int i = 0; i < subtitles.size(); ++i) {
+        SubtitleItem* item = subtitles[i];
+        if (!validator.timestampValidator(item)) {
+            statusBar()->showMessage(QString("Subtitle #%1 có thời gian không hợp lệ!").arg(i + 1));
+            return;
+        }
+        // Kiểm tra định dạng dấu phẩy
+        QString timeLine = QString("%1:%2:%3,%4 --> %5:%6:%7,%8")
+            .arg(item->getStartHour(), 2, 10, QChar('0'))
+            .arg(item->getStartMinute(), 2, 10, QChar('0'))
+            .arg(item->getStartSecond(), 2, 10, QChar('0'))
+            .arg(item->getStartMillisecond(), 3, 10, QChar('0'))
+            .arg(item->getEndHour(), 2, 10, QChar('0'))
+            .arg(item->getEndMinute(), 2, 10, QChar('0'))
+            .arg(item->getEndSecond(), 2, 10, QChar('0'))
+            .arg(item->getEndMillisecond(), 3, 10, QChar('0'));
+        if (!validator.timestampFormatValid(timeLine)) {
+            statusBar()->showMessage(QString("Subtitle #%1 sai định dạng dấu phẩy cho milliseconds!").arg(i + 1));
+            return;
+        }
+        // Kiểm tra chồng thời gian
+        int startMs = ((item->getStartHour() * 60 * 60 + item->getStartMinute() * 60 + item->getStartSecond()) * 1000) + item->getStartMillisecond();
+        if (prevEndMs != -1 && startMs < prevEndMs) {
+            statusBar()->showMessage(QString("Subtitle #%1 bị chồng thời gian với subtitle #%2!").arg(i + 1).arg(i));
+            return;
+        }
+        prevEndMs = ((item->getEndHour() * 60 * 60 + item->getEndMinute() * 60 + item->getEndSecond()) * 1000) + item->getEndMillisecond();
+    }
+
     QString filePath = QFileDialog::getSaveFileName(
         this,
         "Export SRT File",
