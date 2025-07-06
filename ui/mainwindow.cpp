@@ -63,6 +63,7 @@ void MainWindow::addSubtitle()
     SubtitleItem *newSubtitle = new SubtitleItem();
     int latestOrder = this->subtitles.length();
     newSubtitle->setOrder(latestOrder);
+    connect(newSubtitle->getSelectedCheckbox(), &QCheckBox::stateChanged, this, &MainWindow::appendOrRemoveSelectedSubtitle);
     subtitleContainerLayout->addWidget(newSubtitle);
     subtitles.append(newSubtitle);
     statusBar()->showMessage("New subtitle is added.");
@@ -100,6 +101,20 @@ void MainWindow::clearSubtitles()
 
 void MainWindow::removeSubtitle()
 {
+    // Xóa các subtitle được chọn khỏi layout và danh sách subtitles
+    for (SubtitleItem* item : selectedSubtitles) {
+        subtitles.removeAll(item);
+        subtitleContainerLayout->removeWidget(item);
+        item->deleteLater();
+    }
+    selectedSubtitles.clear();
+
+    // Cập nhật lại order cho các subtitle còn lại
+    for (int i = 0; i < subtitles.size(); ++i) {
+        subtitles[i]->setOrder(i);
+    }
+
+    statusBar()->showMessage("Removed selected subtitles.");
 }
 
 void MainWindow::selectOutputSpeechDir()
@@ -115,8 +130,42 @@ void MainWindow::selectOutputSpeechDir()
 
 void MainWindow::setLanguage()
 {
-    QAction *action = qobject_cast<QAction*>(sender());
+    QAction *action = qobject_cast<QAction*>(this->sender());
     if (!action) return;
     selectedLanguage = action->data().toString();
     statusBar()->showMessage("Selected language: " + selectedLanguage);
+}
+
+void MainWindow::appendOrRemoveSelectedSubtitle(int state)
+{
+    QCheckBox *checkbox = qobject_cast<QCheckBox*>(sender());
+    if (!checkbox) return;
+
+    SubtitleItem *item = qobject_cast<SubtitleItem*>(checkbox->parentWidget());
+    if (!item) return;
+
+    QUuid uuid = item->getUuid();
+
+    if (state == Qt::Checked)
+    {
+        // Thêm vào danh sách nếu chưa có
+        bool exists = false;
+        for (SubtitleItem* s : selectedSubtitles) {
+            if (s->getUuid() == uuid) {
+                exists = true;
+                break;
+            }
+        }
+        if (!exists) selectedSubtitles.append(item);
+    }
+    else if (state == Qt::Unchecked)
+    {
+        // Xóa khỏi danh sách nếu có
+        for (int i = 0; i < selectedSubtitles.size(); ++i) {
+            if (selectedSubtitles[i]->getUuid() == uuid) {
+                selectedSubtitles.removeAt(i);
+                break;
+            }
+        }
+    }
 }

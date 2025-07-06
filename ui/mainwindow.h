@@ -23,6 +23,7 @@
 #include <QFileDialog>
 #include <QString>
 #include <QDir>
+#include <QUuid>
 
 namespace Ui {
     class MainWindow;
@@ -39,6 +40,7 @@ private:
     Ui::MainWindow *ui;
     QVBoxLayout *subtitleContainerLayout = new QVBoxLayout();
     QList<SubtitleItem*> subtitles;
+    QList<SubtitleItem*> selectedSubtitles;
 
     void clearLayout(QLayout *layout);
     void openAbout();
@@ -47,6 +49,7 @@ private:
     void clearSubtitles();
     void selectOutputSpeechDir();
     void setLanguage();
+    void appendOrRemoveSelectedSubtitle(int state);
 
 public:
     explicit MainWindow(QWidget *parent = nullptr);
