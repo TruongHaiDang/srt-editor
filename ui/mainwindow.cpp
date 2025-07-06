@@ -9,6 +9,20 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     subtitleContainerLayout->setObjectName("subtitleContainerLayout");
     ui->subtitleContainer->setLayout(subtitleContainerLayout);
 
+    std::ifstream file("languages.txt");
+    if (file.is_open())
+    {
+        std::string line;
+        while (std::getline(file, line))
+        {
+            QAction *action = new QAction(line.c_str(), this);
+            line[0] = std::toupper(line[0]);
+            std::string actionObjName = "action" + line;
+            action->setObjectName(actionObjName);
+            ui->menuLanguages->addAction(action);
+        }
+    };
+
     connect(ui->actionClose, &QAction::triggered, this, &QApplication::quit);
     connect(ui->actionSoftware_Author, &QAction::triggered, this, &MainWindow::openAbout);
     connect(ui->actionAdd_subtitle, &QAction::triggered, this, &MainWindow::addSubtitle);
@@ -32,9 +46,8 @@ void MainWindow::openAbout()
     std::string versionStr = "v" + std::string(PROJECT_VERSION);
     about_ui->projectNameLbl->setText(QString::fromStdString(std::string(PROJECT_NAME)));
     about_ui->versionLbl->setText(QString::fromStdString(versionStr));
-    connect(about_ui->openYoutubeBtn, &QPushButton::clicked, this, []() {
-        QDesktopServices::openUrl(QUrl("https://www.youtube.com/channel/UCsqybGJRpU6XBo7-D9cRYkg/"));
-    });
+    connect(about_ui->openYoutubeBtn, &QPushButton::clicked, this, []()
+            { QDesktopServices::openUrl(QUrl("https://www.youtube.com/channel/UCsqybGJRpU6XBo7-D9cRYkg/")); });
 
     aboutDlg->exec();
 
@@ -46,7 +59,6 @@ void MainWindow::addSubtitle()
 {
     SubtitleItem *newSubtitle = new SubtitleItem();
     int latestOrder = this->subtitles.length();
-    printf("%d", latestOrder);
     newSubtitle->setOrder(latestOrder);
     subtitleContainerLayout->addWidget(newSubtitle);
     subtitles.append(newSubtitle);
@@ -55,7 +67,8 @@ void MainWindow::addSubtitle()
 
 void MainWindow::clearLayout(QLayout *layout)
 {
-    if (!layout) return;
+    if (!layout)
+        return;
 
     while (QLayoutItem *item = layout->takeAt(0))
     {
@@ -84,5 +97,4 @@ void MainWindow::clearSubtitles()
 
 void MainWindow::removeSubtitle()
 {
-
 }

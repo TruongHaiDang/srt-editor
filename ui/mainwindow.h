@@ -5,7 +5,8 @@
 #include "ui_about.h"
 #include "subtitle_item.h"
 #include "configure.h"
-#include <stdio.h>
+#include <sstream>
+#include <fstream>
 
 #include <string>
 #include <QString>

@@ -89,7 +89,12 @@
      <addaction name="actionAll"/>
      <addaction name="actionCurrent_subtitle"/>
     </widget>
-    <addaction name="actionLanguages"/>
+    <widget class="QMenu" name="menuLanguages">
+     <property name="title">
+      <string>Languages</string>
+     </property>
+    </widget>
+    <addaction name="menuLanguages"/>
     <addaction name="menuText_to_Speech"/>
     <addaction name="actionOutput_folder"/>
    </widget>
@@ -139,11 +144,6 @@
     <string>Clear subtitles</string>
    </property>
   </action>
-  <action name="actionLanguages">
-   <property name="text">
-    <string>Languages</string>
-   </property>
-  </action>
   <action name="actionAll">
    <property name="text">
     <string>All</string>
@@ -162,6 +162,11 @@
   <action name="actionSoftware_Author">
    <property name="text">
     <string>Software&amp;Author</string>
+   </property>
+  </action>
+  <action name="actionVietnamese">
+   <property name="text">
+    <string>Vietnamese</string>
    </property>
   </action>
  </widget>
