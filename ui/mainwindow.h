@@ -35,6 +35,7 @@ class MainWindow: public QMainWindow
 
 private:
     QString outputSpeechDir;
+    QString selectedLanguage;
     Ui::MainWindow *ui;
     QVBoxLayout *subtitleContainerLayout = new QVBoxLayout();
     QList<SubtitleItem*> subtitles;
@@ -45,6 +46,7 @@ private:
     void removeSubtitle();
     void clearSubtitles();
     void selectOutputSpeechDir();
+    void setLanguage();
 
 public:
     explicit MainWindow(QWidget *parent = nullptr);

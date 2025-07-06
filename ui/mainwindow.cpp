@@ -19,6 +19,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
             line[0] = std::toupper(line[0]);
             std::string actionObjName = "action" + line;
             action->setObjectName(actionObjName);
+            action->setData(QString::fromStdString(line));
+            connect(action, &QAction::triggered, this, &MainWindow::setLanguage);
             ui->menuLanguages->addAction(action);
         }
     };
@@ -109,4 +111,12 @@ void MainWindow::selectOutputSpeechDir()
         QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks
     );
     statusBar()->showMessage("Output dir: " + this->outputSpeechDir);
+}
+
+void MainWindow::setLanguage()
+{
+    QAction *action = qobject_cast<QAction*>(sender());
+    if (!action) return;
+    selectedLanguage = action->data().toString();
+    statusBar()->showMessage("Selected language: " + selectedLanguage);
 }
