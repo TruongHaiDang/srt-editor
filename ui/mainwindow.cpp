@@ -28,6 +28,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     connect(ui->actionAdd_subtitle, &QAction::triggered, this, &MainWindow::addSubtitle);
     connect(ui->actionClear_subtitles, &QAction::triggered, this, &MainWindow::clearSubtitles);
     connect(ui->actionRemove_subtitle, &QAction::triggered, this, &MainWindow::removeSubtitle);
+    connect(ui->actionOutput_folder, &QAction::triggered, this, &MainWindow::selectOutputSpeechDir);
 
     statusBar()->showMessage("Ready");
 }
@@ -97,4 +98,15 @@ void MainWindow::clearSubtitles()
 
 void MainWindow::removeSubtitle()
 {
+}
+
+void MainWindow::selectOutputSpeechDir()
+{
+    this->outputSpeechDir = QFileDialog::getExistingDirectory(
+        this,
+        "Select the output folder for speech mp3 files",
+        QDir::homePath(),
+        QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks
+    );
+    statusBar()->showMessage("Output dir: " + this->outputSpeechDir);
 }

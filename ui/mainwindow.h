@@ -20,6 +20,9 @@
 #include <QStatusBar>
 #include <QLayout>
 #include <QLayoutItem>
+#include <QFileDialog>
+#include <QString>
+#include <QDir>
 
 namespace Ui {
     class MainWindow;
@@ -31,6 +34,7 @@ class MainWindow: public QMainWindow
     Q_OBJECT
 
 private:
+    QString outputSpeechDir;
     Ui::MainWindow *ui;
     QVBoxLayout *subtitleContainerLayout = new QVBoxLayout();
     QList<SubtitleItem*> subtitles;
@@ -40,6 +44,7 @@ private:
     void addSubtitle();
     void removeSubtitle();
     void clearSubtitles();
+    void selectOutputSpeechDir();
 
 public:
     explicit MainWindow(QWidget *parent = nullptr);
