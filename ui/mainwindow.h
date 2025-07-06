@@ -31,6 +31,14 @@ namespace Ui {
     class About;
 }
 
+/**
+ * @class MainWindow
+ * @brief The primary window that orchestrates subtitle editing workflow.
+ *
+ * MainWindow wires UI actions (menu, buttons) to business logic such as adding
+ * or exporting subtitles. It owns a dynamic list of SubtitleItem widgets and
+ * bundles common helper methods that manipulate the list.
+ */
 class MainWindow: public QMainWindow
 {
     Q_OBJECT
@@ -44,19 +52,61 @@ private:
     QList<SubtitleItem*> selectedSubtitles;
     QString srtFilePath;
 
+    /**
+     * @brief Recursively delete all items inside a layout.
+     *
+     * Problem/Objectives: When clearing the subtitle list we must delete
+     * widgets AND any nested layouts to prevent memory leaks.
+     *
+     * Solution/Implementation: Iterate through layout items and depending on
+     * their type delete them appropriately.
+     */
     void clearLayout(QLayout *layout);
+    /**
+     * @brief Show the "About" dialog.
+     */
     void openAbout();
+    /**
+     * @brief Append a fresh SubtitleItem to the list.
+     */
     void addSubtitle();
+    /**
+     * @brief Remove all currently selected subtitle rows.
+     */
     void removeSubtitle();
+    /**
+     * @brief Delete every subtitle row and reset internal state.
+     */
     void clearSubtitles();
+    /**
+     * @brief Prompt the user to select an output directory for generated audio files.
+     */
     void selectOutputSpeechDir();
+    /**
+     * @brief Slot called when a language is picked from the Languages menu.
+     */
     void setLanguage();
+    /**
+     * @brief Add or remove a SubtitleItem from the selection cache whenever its checkbox changes.
+     */
     void appendOrRemoveSelectedSubtitle(int state);
+    /**
+     * @brief Ask user for an existing SRT file and populate the editor list with its contents.
+     */
     void openSrtFile();
+    /**
+     * @brief Validate all subtitles and export them to a new SRT file.
+     */
     void exportSrtFile();
 
 public:
+    /**
+     * @brief Default constructor – builds the UI and connects signals.
+     */
     explicit MainWindow(QWidget *parent = nullptr);
+    /**
+     * @brief Destructor – cleans up allocated Ui class.
+     */
     ~MainWindow();
 };
 
