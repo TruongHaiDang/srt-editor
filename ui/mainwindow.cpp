@@ -377,5 +377,4 @@ void MainWindow::loadAppSettings()
     QString translateApiKey = settings.value("translate/apiKey", "").toString();
     QString ttsProvider = settings.value("tts/provider", "OpenAI").toString();
     QString ttsApiKey = settings.value("tts/apiKey", "").toString();
-    // TODO: Sử dụng các giá trị này cho app nếu cần
 }
