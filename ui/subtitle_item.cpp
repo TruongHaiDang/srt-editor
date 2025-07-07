@@ -1,5 +1,15 @@
 #include "subtitle_item.h"
 
+/**
+ * @brief Construct a new SubtitleItem widget.
+ *
+ * Problem/Objectives: Instantiate all child controls defined in the designer
+ * file, ensure the row stays compact and assign a unique identifier so that
+ * it can later be referenced by MainWindow (e.g. selection/removal).
+ *
+ * Solution/Implementation: Call setupUi, set a maximum height of 132 px and
+ * generate a QUuid.
+ */
 SubtitleItem::SubtitleItem(QWidget* parent): QWidget(parent), ui(new Ui::SubtitleItem)
 {
     ui->setupUi(this);
@@ -7,25 +17,45 @@ SubtitleItem::SubtitleItem(QWidget* parent): QWidget(parent), ui(new Ui::Subtitl
     this->uuid = QUuid::createUuid();
 }
 
+/**
+ * @brief Destructor – nothing to clean explicitly because Qt uses parent
+ * ownership to delete child widgets automatically.
+ */
 SubtitleItem::~SubtitleItem()
 {
 }
 
+/**
+ * @brief Update the numeric order label displayed in the UI.
+ */
 void SubtitleItem::setOrder(int order)
 {
     ui->orderLbl->setText(QString::fromStdString(std::to_string(order)));
 }
 
+/**
+ * @brief Retrieve the unique identifier of this subtitle row.
+ */
 QUuid SubtitleItem::getUuid()
 {
     return this->uuid;
 }
 
+/**
+ * @brief Access the selection checkbox so external components can observe its state.
+ */
 QCheckBox* SubtitleItem::getSelectedCheckbox() const
 {
     return ui->isSelected;
 }
 
+/**
+ * @brief Getter implementations for time components & order.
+ *
+ * Each getter simply returns the current value from the corresponding Qt
+ * control. They exist so that business-logic (validation, export, …) can work
+ * with plain integers instead of querying UI elements directly.
+ */
 int SubtitleItem::getOrder() const {
     return ui->orderLbl->text().toInt();
 }
@@ -58,6 +88,13 @@ QString SubtitleItem::getContent() const {
     return ui->subtitleContent->toPlainText();
 }
 
+/**
+ * @brief Setter implementations for time components & content.
+ *
+ * They simply propagate the provided value to the appropriate spin box or
+ * text edit. Keeping them isolated makes it easier to update UI behaviour in
+ * one place if the underlying widgets change.
+ */
 void SubtitleItem::setStartHour(int hour) {
     ui->startHourLbl->setValue(hour);
 }

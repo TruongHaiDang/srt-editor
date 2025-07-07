@@ -1,6 +1,16 @@
 #include "mainwindow.h"
 #include <QRegularExpression>
 
+/**
+ * @brief Construct a new MainWindow object.
+ *
+ * Problem/Objectives: Initialize the application interface, load language
+ * list, configure signal–slot connections and prepare an empty subtitle list.
+ *
+ * Solution/Implementation: Build designer UI, customise icons, dynamically
+ * populate the languages menu from languages.txt and connect every QAction
+ * with its corresponding private slot.
+ */
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow)
 {
     // Thiết lập UI
@@ -38,11 +48,17 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     statusBar()->showMessage("Ready");
 }
 
+/**
+ * @brief Destructor – deletes the generated Ui object.
+ */
 MainWindow::~MainWindow()
 {
     delete ui;
 }
 
+/**
+ * @brief Display the modal "About" dialog that shows application information.
+ */
 void MainWindow::openAbout()
 {
     QDialog *aboutDlg = new QDialog(this);
@@ -61,6 +77,9 @@ void MainWindow::openAbout()
     delete aboutDlg;
 }
 
+/**
+ * @brief Create a new SubtitleItem, append it to internal list and layout.
+ */
 void MainWindow::addSubtitle()
 {
     SubtitleItem *newSubtitle = new SubtitleItem();
@@ -72,6 +91,9 @@ void MainWindow::addSubtitle()
     statusBar()->showMessage("New subtitle is added.");
 }
 
+/**
+ * @brief Remove all widgets and sub-layouts within the given layout pointer.
+ */
 void MainWindow::clearLayout(QLayout *layout)
 {
     if (!layout)
@@ -95,6 +117,9 @@ void MainWindow::clearLayout(QLayout *layout)
     }
 }
 
+/**
+ * @brief Clear the entire subtitle list and update the status bar.
+ */
 void MainWindow::clearSubtitles()
 {
     subtitles.clear();
@@ -102,6 +127,9 @@ void MainWindow::clearSubtitles()
     statusBar()->showMessage("All subtitles are cleared.");
 }
 
+/**
+ * @brief Delete user-selected subtitle rows and renumber remaining ones.
+ */
 void MainWindow::removeSubtitle()
 {
     // Xóa các subtitle được chọn khỏi layout và danh sách subtitles
@@ -122,6 +150,9 @@ void MainWindow::removeSubtitle()
     statusBar()->showMessage("Removed selected subtitles.");
 }
 
+/**
+ * @brief Let user pick an output directory for synthesized speech files.
+ */
 void MainWindow::selectOutputSpeechDir()
 {
     this->outputSpeechDir = QFileDialog::getExistingDirectory(
@@ -132,6 +163,9 @@ void MainWindow::selectOutputSpeechDir()
     statusBar()->showMessage("Output dir: " + this->outputSpeechDir);
 }
 
+/**
+ * @brief Slot that updates currently selected language based on QAction data.
+ */
 void MainWindow::setLanguage()
 {
     QAction *action = qobject_cast<QAction *>(this->sender());
@@ -141,6 +175,9 @@ void MainWindow::setLanguage()
     statusBar()->showMessage("Selected language: " + selectedLanguage);
 }
 
+/**
+ * @brief Maintain the selectedSubtitles cache whenever a checkbox toggles.
+ */
 void MainWindow::appendOrRemoveSelectedSubtitle(int state)
 {
     QCheckBox *checkbox = qobject_cast<QCheckBox *>(sender());
@@ -182,6 +219,9 @@ void MainWindow::appendOrRemoveSelectedSubtitle(int state)
     }
 }
 
+/**
+ * @brief Parse an existing SRT file and populate the editor with its blocks.
+ */
 void MainWindow::openSrtFile()
 {
     QString filePath = QFileDialog::getOpenFileName(
@@ -246,6 +286,9 @@ void MainWindow::openSrtFile()
     statusBar()->showMessage("Opened: " + filePath);
 }
 
+/**
+ * @brief Validate every SubtitleItem then write them into a user-chosen SRT output file.
+ */
 void MainWindow::exportSrtFile()
 {
     if (subtitles.isEmpty()) {
