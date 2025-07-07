@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include <QRegularExpression>
+#include <QSettings>
 
 /**
  * @brief Construct a new MainWindow object.
@@ -44,6 +45,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     connect(ui->actionOutput_folder, &QAction::triggered, this, &MainWindow::selectOutputSpeechDir);
     connect(ui->actionOpen, &QAction::triggered, this, &MainWindow::openSrtFile);
     connect(ui->actionExport, &QAction::triggered, this, &MainWindow::exportSrtFile);
+    connect(ui->actionSettings, &QAction::triggered, this, &MainWindow::openSettings);
 
     statusBar()->showMessage("Ready");
 }
@@ -358,4 +360,22 @@ void MainWindow::exportSrtFile()
     }
     file.close();
     statusBar()->showMessage("Exported: " + filePath);
+}
+
+void MainWindow::openSettings()
+{
+    AppSettings settingsDlg(this);
+    if (settingsDlg.exec() == QDialog::Accepted) {
+        loadAppSettings();
+    }
+}
+
+void MainWindow::loadAppSettings()
+{
+    QSettings settings;
+    QString translateProvider = settings.value("translate/provider", "OpenAI").toString();
+    QString translateApiKey = settings.value("translate/apiKey", "").toString();
+    QString ttsProvider = settings.value("tts/provider", "OpenAI").toString();
+    QString ttsApiKey = settings.value("tts/apiKey", "").toString();
+    // TODO: Sử dụng các giá trị này cho app nếu cần
 }

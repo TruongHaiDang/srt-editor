@@ -59,6 +59,8 @@
     <addaction name="actionOpen"/>
     <addaction name="actionExport"/>
     <addaction name="separator"/>
+    <addaction name="actionSettings"/>
+    <addaction name="separator"/>
     <addaction name="actionClose"/>
    </widget>
    <widget class="QMenu" name="menuEdit">
@@ -164,6 +166,11 @@
   <action name="actionVietnamese">
    <property name="text">
     <string>Vietnamese</string>
+   </property>
+  </action>
+  <action name="actionSettings">
+   <property name="text">
+    <string>Settings</string>
    </property>
   </action>
  </widget>

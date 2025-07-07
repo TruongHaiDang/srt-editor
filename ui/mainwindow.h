@@ -4,6 +4,7 @@
 #include "ui_mainwindow.h"
 #include "ui_about.h"
 #include "subtitle_item.h"
+#include "app_settings.h"
 #include "configure.h"
 #include <sstream>
 #include <fstream>
@@ -98,6 +99,10 @@ private:
      * @brief Validate all subtitles and export them to a new SRT file.
      */
     void exportSrtFile();
+
+    void openSettings();
+
+    void loadAppSettings();
 
 public:
     /**
