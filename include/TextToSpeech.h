@@ -10,8 +10,9 @@ class TextToSpeech
 {
 private:
     std::string openaiApiKey;
+    std::string elevenlabsApiKey;
     std::string openaiInstructions;
-    std::string ttsOpenaiUrl = "https://api.openai.com/v1/audio/speech";
+    
     std::string openaiVoices[10] = {
         "alloy",
         "ash",
@@ -42,8 +43,8 @@ public:
     TextToSpeech();
     ~TextToSpeech();
 
-    void openaiTextToSpeech(std::string text, std::string outputDir, float speed);
-    void elevenlabsTextToSpeech(std::string text, std::string outputDir);
+    void openaiTextToSpeech(std::string text, std::string outputDir, float speed, std::string model, std::string voice, std::string instructions, std::string outputFile = "");
+    void elevenlabsTextToSpeech(std::string text, std::string outputDir, std::string voiceId, std::string modelId, std::string outputFormat, std::string outputFile = "");
 };
 
 #endif
