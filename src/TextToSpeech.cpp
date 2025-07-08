@@ -1,9 +1,4 @@
 #include "TextToSpeech.h"
-#include <fstream>
-#include <sstream>
-#include <nlohmann/json.hpp>
-#include <chrono>
-#include <iomanip>
 
 TextToSpeech::TextToSpeech()
 {
@@ -129,4 +124,20 @@ void TextToSpeech::elevenlabsTextToSpeech(std::string text, std::string outputDi
 
     curl_slist_free_all(headers);
     curl_easy_cleanup(curl);
+}
+
+void TextToSpeech::setOpenaiApiKey(const std::string& apiKey) {
+    openaiApiKey = apiKey;
+}
+
+std::string TextToSpeech::getOpenaiApiKey() const {
+    return openaiApiKey;
+}
+
+void TextToSpeech::setElevenlabsApiKey(const std::string& apiKey) {
+    elevenlabsApiKey = apiKey;
+}
+
+std::string TextToSpeech::getElevenlabsApiKey() const {
+    return elevenlabsApiKey;
 }

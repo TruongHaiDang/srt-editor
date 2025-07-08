@@ -5,6 +5,11 @@
 
 #include <string>
 #include <curl/curl.h>
+#include <fstream>
+#include <sstream>
+#include <nlohmann/json.hpp>
+#include <chrono>
+#include <iomanip>
 
 class TextToSpeech
 {
@@ -42,6 +47,11 @@ private:
 public:
     TextToSpeech();
     ~TextToSpeech();
+
+    void setOpenaiApiKey(const std::string& apiKey);
+    std::string getOpenaiApiKey() const;
+    void setElevenlabsApiKey(const std::string& apiKey);
+    std::string getElevenlabsApiKey() const;
 
     void openaiTextToSpeech(std::string text, std::string outputDir, float speed, std::string model, std::string voice, std::string instructions, std::string outputFile = "");
     void elevenlabsTextToSpeech(std::string text, std::string outputDir, std::string voiceId, std::string modelId, std::string outputFormat, std::string outputFile = "");
