@@ -13,6 +13,10 @@
   <property name="windowTitle">
    <string>Settings</string>
   </property>
+  <property name="windowIcon">
+   <iconset resource="srt_editor_resources.qrc">
+    <normaloff>:/mainwindow/assets/icon.png</normaloff>:/mainwindow/assets/icon.png</iconset>
+  </property>
   <layout class="QVBoxLayout" name="verticalLayout_3">
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout">
@@ -136,7 +140,9 @@
    </item>
   </layout>
  </widget>
- <resources/>
+ <resources>
+  <include location="srt_editor_resources.qrc"/>
+ </resources>
  <connections>
   <connection>
    <sender>buttonBox</sender>

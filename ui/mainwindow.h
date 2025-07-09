@@ -46,7 +46,6 @@ class MainWindow: public QMainWindow
 
 private:
     QString outputSpeechDir;
-    QString selectedLanguage;
     Ui::MainWindow *ui;
     QVBoxLayout *subtitleContainerLayout = new QVBoxLayout();
     QList<SubtitleItem*> subtitles;
@@ -83,10 +82,6 @@ private:
      * @brief Prompt the user to select an output directory for generated audio files.
      */
     void selectOutputSpeechDir();
-    /**
-     * @brief Slot called when a language is picked from the Languages menu.
-     */
-    void setLanguage();
     /**
      * @brief Add or remove a SubtitleItem from the selection cache whenever its checkbox changes.
      */

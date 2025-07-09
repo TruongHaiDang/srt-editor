@@ -88,12 +88,6 @@
      <addaction name="actionAll"/>
      <addaction name="actionCurrent_subtitle"/>
     </widget>
-    <widget class="QMenu" name="menuLanguages">
-     <property name="title">
-      <string>Languages</string>
-     </property>
-    </widget>
-    <addaction name="menuLanguages"/>
     <addaction name="menuText_to_Speech"/>
     <addaction name="actionOutput_folder"/>
    </widget>

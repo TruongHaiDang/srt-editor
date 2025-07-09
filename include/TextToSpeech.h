@@ -30,14 +30,6 @@ private:
         "sage",
         "shimmer"
     };
-    std::string openaiOutputFormat[6] = {
-        "MP3",
-        "Opus",
-        "AAC",
-        "FLAC",
-        "WAV",
-        "PCM"
-    };
     std::string openaiModels[3] = {
         "tts-1",
         "tts-1-hd",

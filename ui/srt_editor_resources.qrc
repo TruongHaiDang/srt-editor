@@ -2,6 +2,9 @@
   <qresource prefix="about">
     <file>assets/youtube-logo.png</file>
   </qresource>
+  <qresource prefix="subtitle">
+    <file>assets/setting.png</file>
+  </qresource>
   <qresource prefix="mainwindow">
     <file>assets/icon.png</file>
   </qresource>

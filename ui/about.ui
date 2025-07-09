@@ -25,6 +25,10 @@
   <property name="windowTitle">
    <string>About</string>
   </property>
+  <property name="windowIcon">
+   <iconset resource="srt_editor_resources.qrc">
+    <normaloff>:/mainwindow/assets/icon.png</normaloff>:/mainwindow/assets/icon.png</iconset>
+  </property>
   <widget class="QDialogButtonBox" name="buttonBox">
    <property name="geometry">
     <rect>

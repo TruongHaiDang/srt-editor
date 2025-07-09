@@ -21,22 +21,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     subtitleContainerLayout->setObjectName("subtitleContainerLayout");
     ui->subtitleContainer->setLayout(subtitleContainerLayout);
 
-    std::ifstream file("languages.txt");
-    if (file.is_open())
-    {
-        std::string line;
-        while (std::getline(file, line))
-        {
-            QAction *action = new QAction(line.c_str(), this);
-            line[0] = std::toupper(line[0]);
-            std::string actionObjName = "action" + line;
-            action->setObjectName(actionObjName);
-            action->setData(QString::fromStdString(line));
-            connect(action, &QAction::triggered, this, &MainWindow::setLanguage);
-            ui->menuLanguages->addAction(action);
-        }
-    };
-
     connect(ui->actionClose, &QAction::triggered, this, &QApplication::quit);
     connect(ui->actionSoftware_Author, &QAction::triggered, this, &MainWindow::openAbout);
     connect(ui->actionAdd_subtitle, &QAction::triggered, this, &MainWindow::addSubtitle);
@@ -163,18 +147,6 @@ void MainWindow::selectOutputSpeechDir()
         QDir::homePath(),
         QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
     statusBar()->showMessage("Output dir: " + this->outputSpeechDir);
-}
-
-/**
- * @brief Slot that updates currently selected language based on QAction data.
- */
-void MainWindow::setLanguage()
-{
-    QAction *action = qobject_cast<QAction *>(this->sender());
-    if (!action)
-        return;
-    selectedLanguage = action->data().toString();
-    statusBar()->showMessage("Selected language: " + selectedLanguage);
 }
 
 /**

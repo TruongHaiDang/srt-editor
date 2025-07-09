@@ -13,9 +13,9 @@
   <property name="windowTitle">
    <string>Subtitle item</string>
   </property>
-  <layout class="QHBoxLayout" name="horizontalLayout_4" stretch="0,1">
+  <layout class="QHBoxLayout" name="horizontalLayout_4">
    <item>
-    <layout class="QVBoxLayout" name="verticalLayout">
+    <layout class="QVBoxLayout" name="verticalLayout" stretch="0,1,0">
      <item>
       <widget class="QCheckBox" name="isSelected">
        <property name="text">
@@ -38,6 +38,17 @@
        </property>
        <property name="wordWrap">
         <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="subtitleItemSettings">
+       <property name="text">
+        <string/>
+       </property>
+       <property name="icon">
+        <iconset resource="srt_editor_resources.qrc">
+         <normaloff>:/subtitle/assets/setting.png</normaloff>:/subtitle/assets/setting.png</iconset>
        </property>
       </widget>
      </item>
@@ -105,6 +116,8 @@
    </item>
   </layout>
  </widget>
- <resources/>
+ <resources>
+  <include location="srt_editor_resources.qrc"/>
+ </resources>
  <connections/>
 </ui>
