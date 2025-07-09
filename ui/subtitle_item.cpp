@@ -15,6 +15,11 @@ SubtitleItem::SubtitleItem(QWidget* parent): QWidget(parent), ui(new Ui::Subtitl
     ui->setupUi(this);
     setMaximumHeight(132);
     this->uuid = QUuid::createUuid();
+
+    connect(ui->subtitleItemSettings, &QPushButton::clicked, this, [this](){
+        SubtitleConfig *subtitleConfig = new SubtitleConfig(this);
+        subtitleConfig->show();
+    });
 }
 
 /**

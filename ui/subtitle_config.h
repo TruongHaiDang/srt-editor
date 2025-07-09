@@ -6,6 +6,8 @@
 #include <QWidget>
 #include <QDialog>
 #include "ui_subtitle_config.h"
+#include <QList>
+#include <QString>
 
 namespace Ui {
     class SubtitleConfig;
@@ -17,6 +19,19 @@ class SubtitleConfig: public QDialog
 
 private:
     Ui::SubtitleConfig *ui;
+    QList<QString> openaiChatModels;
+    QList<QString> openaiSpeechModels;
+    QList<QString> githubChatModels;
+    QList<QString> elevenlabsSpeechModels;
+
+    void getOpenaiChatModels();
+    void getOpenaiSpeechModels();
+    void getOpenaiSpeechVoices();
+
+    void getElevenlabsSpeechModels();
+    void getElevenlabsSpeechVoices();
+
+    void getGithubChatModels();
 
 public:
     explicit SubtitleConfig(QWidget* parent = nullptr);

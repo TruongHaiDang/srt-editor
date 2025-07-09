@@ -133,6 +133,31 @@
                 <property name="layoutDirection">
                  <enum>Qt::RightToLeft</enum>
                 </property>
+                <item>
+                 <property name="text">
+                  <string>Vietnamese</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>English</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Japanese</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Chinese</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Korean</string>
+                 </property>
+                </item>
                </widget>
               </item>
              </layout>
@@ -255,6 +280,31 @@
               <property name="layoutDirection">
                <enum>Qt::RightToLeft</enum>
               </property>
+              <item>
+               <property name="text">
+                <string>Vietnamese</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>English</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>Japanese</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>Chinese</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>Korean</string>
+               </property>
+              </item>
              </widget>
             </item>
            </layout>

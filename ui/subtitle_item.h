@@ -1,18 +1,18 @@
 #pragma once
 
+#ifndef __SUBTITLE_ITEM_H__
+#define __SUBTITLE_ITEM_H__
+
 #include <string>
 #include "ui_subtitle_item.h"
 #include <QWidget>
-
-#ifndef __SUBTITLE_ITEM_H__
-#define __SUBTITLE_ITEM_H__
+#include <QUuid>
+#include <QCheckBox>
+#include "subtitle_config.h"
 
 namespace Ui {
     class SubtitleItem;
 }
-
-#include <QUuid>
-#include <QCheckBox>
 
 /**
  * @class SubtitleItem
