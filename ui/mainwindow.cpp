@@ -30,6 +30,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     connect(ui->actionOpen, &QAction::triggered, this, &MainWindow::openSrtFile);
     connect(ui->actionExport, &QAction::triggered, this, &MainWindow::exportSrtFile);
     connect(ui->actionSettings, &QAction::triggered, this, &MainWindow::openSettings);
+    connect(ui->actionTranslate_all, &QAction::triggered, this, &MainWindow::translateAll);
+    connect(ui->actionTranslate_selected, &QAction::triggered, this, &MainWindow::translateSelected);
 
     statusBar()->showMessage("Ready");
 }
@@ -349,4 +351,14 @@ void MainWindow::loadAppSettings()
     QString translateApiKey = settings.value("translate/apiKey", "").toString();
     QString ttsProvider = settings.value("tts/provider", "OpenAI").toString();
     QString ttsApiKey = settings.value("tts/apiKey", "").toString();
+}
+
+void MainWindow::translateAll()
+{
+
+}
+    
+void MainWindow::translateSelected()
+{
+
 }

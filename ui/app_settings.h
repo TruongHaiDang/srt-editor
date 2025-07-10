@@ -10,6 +10,7 @@ namespace Ui {
 #include <QDialog>
 #include <QWidget>
 #include "ui_app_settings.h"
+#include <QSettings>
 
 class AppSettings: public QDialog
 {

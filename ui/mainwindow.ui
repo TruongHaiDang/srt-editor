@@ -91,9 +91,17 @@
     <addaction name="menuText_to_Speech"/>
     <addaction name="actionOutput_folder"/>
    </widget>
+   <widget class="QMenu" name="menuTranslate">
+    <property name="title">
+     <string>Translate</string>
+    </property>
+    <addaction name="actionTranslate_all"/>
+    <addaction name="actionTranslate_selected"/>
+   </widget>
    <addaction name="menuFile"/>
    <addaction name="menuEdit"/>
    <addaction name="menuSpeech"/>
+   <addaction name="menuTranslate"/>
    <addaction name="menuAbout"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
@@ -165,6 +173,16 @@
   <action name="actionSettings">
    <property name="text">
     <string>Settings</string>
+   </property>
+  </action>
+  <action name="actionTranslate_all">
+   <property name="text">
+    <string>Translate all</string>
+   </property>
+  </action>
+  <action name="actionTranslate_selected">
+   <property name="text">
+    <string>Translate selected</string>
    </property>
   </action>
  </widget>

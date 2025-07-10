@@ -99,6 +99,10 @@ private:
 
     void loadAppSettings();
 
+    void translateAll();
+    
+    void translateSelected();
+
 public:
     /**
      * @brief Default constructor – builds the UI and connects signals.
