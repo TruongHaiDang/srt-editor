@@ -66,6 +66,8 @@ void SubtitleConfig::getOpenaiModels()
             QString jsonStr = QString::fromStdString(jsonRes.dump(4));
             if (jsonRes.contains("data") && jsonRes["data"].is_array())
             {
+                this->openaiChatModels.clear();
+                this->openaiSpeechModels.clear();
                 for (const auto &model : jsonRes["data"])
                 {
                     if (model.contains("id"))
@@ -99,10 +101,9 @@ void SubtitleConfig::getElevenlabsSpeechModels()
     {
         curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "GET");
         curl_easy_setopt(curl, CURLOPT_URL, "https://api.elevenlabs.io/v1/models");
-        curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, 30L);
         curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
         curl_easy_setopt(curl, CURLOPT_DEFAULT_PROTOCOL, "https");
-        struct curl_slist *headers = NULL;
+        struct curl_slist *headers = nullptr;
         std::string authHeader = "xi-api-key: " + this->elevenlabsApiKey;
         headers = curl_slist_append(headers, authHeader.c_str());
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
@@ -119,8 +120,9 @@ void SubtitleConfig::getElevenlabsSpeechModels()
             // Duyệt từng phần tử trong mảng JSON
             if (jsonRes.is_array())
             {
-                for (const auto &model : jsonRes)
+                for (const nlohmann::json &model : jsonRes)
                 {
+                    // Ghi log model ra debug
                     if (model.contains("model_id") && model["model_id"].is_string())
                     {
                         QString modelId = QString::fromStdString(model["model_id"].get<std::string>());
@@ -131,6 +133,11 @@ void SubtitleConfig::getElevenlabsSpeechModels()
             // Nếu muốn hiển thị lên combobox:
             ui->speechModels->addItems(this->elevenlabsSpeechModels);
         }
+        else
+        {
+            qDebug() << "Curl failed:" << curl_easy_strerror(res);  // In ra thông điệp lỗi
+            qDebug() << "Error code:" << res;                       // In ra số lỗi, ví dụ 28
+        };
         curl_slist_free_all(headers);
     }
     curl_easy_cleanup(curl);
@@ -145,10 +152,9 @@ void SubtitleConfig::getElevenlabsSpeechVoices()
     {
         curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "GET");
         curl_easy_setopt(curl, CURLOPT_URL, "https://api.elevenlabs.io/v1/voices");
-        curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, 30L);
         curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
         curl_easy_setopt(curl, CURLOPT_DEFAULT_PROTOCOL, "https");
-        struct curl_slist *headers = NULL;
+        struct curl_slist *headers = nullptr;
         std::string authHeader = "xi-api-key: " + this->elevenlabsApiKey;
         headers = curl_slist_append(headers, authHeader.c_str());
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
@@ -176,6 +182,11 @@ void SubtitleConfig::getElevenlabsSpeechVoices()
             // Hiển thị lên combobox:
             ui->speechVoices->addItems(this->elevenlabsSpeechVoices);
         }
+        else
+        {
+            qDebug() << "Curl failed:" << curl_easy_strerror(res);  // In ra thông điệp lỗi
+            qDebug() << "Error code:" << res;                       // In ra số lỗi, ví dụ 28
+        };
         curl_slist_free_all(headers);
     }
     curl_easy_cleanup(curl);
