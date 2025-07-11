@@ -23,31 +23,6 @@
      <item>
       <layout class="QVBoxLayout" name="verticalLayout_4">
        <item>
-        <layout class="QHBoxLayout" name="horizontalLayout_4" stretch="0,1">
-         <item>
-          <widget class="QLabel" name="label">
-           <property name="text">
-            <string>Speech provider</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QComboBox" name="speechProvider">
-           <item>
-            <property name="text">
-             <string>OpenAI</string>
-            </property>
-           </item>
-           <item>
-            <property name="text">
-             <string>ElevenLabs</string>
-            </property>
-           </item>
-          </widget>
-         </item>
-        </layout>
-       </item>
-       <item>
         <widget class="QGroupBox" name="groupBox">
          <property name="title">
           <string>Speech</string>
@@ -217,31 +192,6 @@
      </item>
      <item>
       <layout class="QVBoxLayout" name="verticalLayout_6">
-       <item>
-        <layout class="QHBoxLayout" name="horizontalLayout_5" stretch="0,1">
-         <item>
-          <widget class="QLabel" name="label_7">
-           <property name="text">
-            <string>Translate provider</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QComboBox" name="translateProvider">
-           <item>
-            <property name="text">
-             <string>OpenAI</string>
-            </property>
-           </item>
-           <item>
-            <property name="text">
-             <string>Github models</string>
-            </property>
-           </item>
-          </widget>
-         </item>
-        </layout>
-       </item>
        <item>
         <widget class="QGroupBox" name="groupBox_2">
          <property name="title">

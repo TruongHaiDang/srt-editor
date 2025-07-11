@@ -3,6 +3,12 @@
 AppSettings::AppSettings(QWidget *parent) : QDialog(parent), ui(new Ui::AppSettings)
 {
     ui->setupUi(this);
+    
+    QSettings settings("haidanghth910", "srteditor");
+    ui->translateAiProviders->setCurrentText(settings.value("translate/provider", "OpenAI").toString());
+    ui->translateApiKey->setText(settings.value("translate/apiKey", "").toString());
+    ui->ttsAiProvider->setCurrentText(settings.value("tts/provider", "OpenAI").toString());
+    ui->ttsApiKey->setText(settings.value("tts/apiKey", "").toString());
 }
 
 AppSettings::~AppSettings()
@@ -11,7 +17,7 @@ AppSettings::~AppSettings()
 
 void AppSettings::accept()
 {
-    QSettings settings;
+    QSettings settings("haidanghth910", "srteditor");
     settings.setValue("translate/provider", getTranslateProvider());
     settings.setValue("translate/apiKey", getTranslateApiKey());
     settings.setValue("tts/provider", getTtsProvider());

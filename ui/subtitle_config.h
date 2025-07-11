@@ -14,6 +14,7 @@
 #include <nlohmann/json.hpp>
 #include <QList>
 #include <QDebug>
+#include <QSettings>
 
 namespace Ui {
     class SubtitleConfig;
@@ -27,16 +28,28 @@ private:
     Ui::SubtitleConfig *ui;
     std::string githubToken;
     std::string openaiApiKey;
+    std::string elevenlabsApiKey;
     QList<QString> openaiChatModels;
     QList<QString> openaiSpeechModels;
+    const QList<QString> openaiSpeechVoices {
+        "alloy",
+        "ash",
+        "ballad",
+        "coral",
+        "echo",
+        "fable",
+        "nova",
+        "onyx",
+        "sage",
+        "shimmer"
+    };
     QList<QString> githubChatModels;
     QList<QString> elevenlabsSpeechModels;
+    QList<QString> elevenlabsSpeechVoices;
 
-    size_t writeCallback(void *ptr, size_t size, size_t nmemb, void *userData);
+    static size_t writeCallback(void *ptr, size_t size, size_t nmemb, void *userData);
 
-    void getOpenaiChatModels();
-    void getOpenaiSpeechModels();
-    void getOpenaiSpeechVoices();
+    void getOpenaiModels();
 
     void getElevenlabsSpeechModels();
     void getElevenlabsSpeechVoices();
@@ -46,8 +59,6 @@ private:
 public:
     explicit SubtitleConfig(QWidget* parent = nullptr);
     ~SubtitleConfig();
-
-    
 };
 
 #endif

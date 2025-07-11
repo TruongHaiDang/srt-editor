@@ -19,14 +19,14 @@ class AppSettings: public QDialog
 private:
     Ui::AppSettings *ui;
 
-public:
-    explicit AppSettings(QWidget* parent = nullptr);
-    ~AppSettings();
-
     QString getTranslateProvider() const;
     QString getTranslateApiKey() const;
     QString getTtsProvider() const;
     QString getTtsApiKey() const;
+
+public:
+    explicit AppSettings(QWidget* parent = nullptr);
+    ~AppSettings();
 
 protected:
     void accept() override;
