@@ -145,6 +145,9 @@ void SubtitleConfig::getElevenlabsSpeechModels()
 
 void SubtitleConfig::getElevenlabsSpeechVoices()
 {
+    QSettings settings("haidanghth910", "srteditor");
+    this->elevenlabsApiKey = settings.value("tts/apiKey", "").toString().toStdString();
+
     CURL *curl;
     CURLcode res;
     curl = curl_easy_init();
@@ -167,26 +170,30 @@ void SubtitleConfig::getElevenlabsSpeechVoices()
         if (res == CURLE_OK)
         {
             nlohmann::json jsonRes = nlohmann::json::parse(response);
-            this->elevenlabsSpeechVoices.clear();
+            this->elevenlabsVoiceNameToId.clear();
+            QStringList voiceNames;
             if (jsonRes.contains("voices") && jsonRes["voices"].is_array())
             {
                 for (const auto &voice : jsonRes["voices"])
                 {
-                    if (voice.contains("voice_id") && voice["voice_id"].is_string())
+                    if (voice.contains("name") && voice.contains("voice_id") &&
+                        voice["name"].is_string() && voice["voice_id"].is_string())
                     {
-                        QString voiceId = QString::fromStdString(voice["voice_id"].get<std::string>());
-                        this->elevenlabsSpeechVoices.append(voiceId);
+                        QString name = QString::fromStdString(voice["name"].get<std::string>());
+                        QString id = QString::fromStdString(voice["voice_id"].get<std::string>());
+                        this->elevenlabsVoiceNameToId[name] = id;
+                        voiceNames.append(name);
                     }
                 }
             }
-            // Hiển thị lên combobox:
-            ui->speechVoices->addItems(this->elevenlabsSpeechVoices);
+            ui->speechVoices->clear();
+            ui->speechVoices->addItems(voiceNames);
         }
         else
         {
-            qDebug() << "Curl failed:" << curl_easy_strerror(res);  // In ra thông điệp lỗi
-            qDebug() << "Error code:" << res;                       // In ra số lỗi, ví dụ 28
-        };
+            qDebug() << "Curl failed:" << curl_easy_strerror(res);
+            qDebug() << "Error code:" << res;
+        }
         curl_slist_free_all(headers);
     }
     curl_easy_cleanup(curl);
@@ -194,5 +201,53 @@ void SubtitleConfig::getElevenlabsSpeechVoices()
 
 void SubtitleConfig::getGithubChatModels()
 {
+    QSettings settings("haidanghth910", "srteditor");
+    this->githubToken = settings.value("github/apiKey", "").toString().toStdString();
 
+    CURL *curl;
+    CURLcode res;
+    curl = curl_easy_init();
+    if (curl)
+    {
+        curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "GET");
+        curl_easy_setopt(curl, CURLOPT_URL, "https://models.github.ai/catalog/models");
+        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+        curl_easy_setopt(curl, CURLOPT_DEFAULT_PROTOCOL, "https");
+        struct curl_slist *headers = nullptr;
+        headers = curl_slist_append(headers, "X-GitHub-Api-Version: 2022-11-28");
+        headers = curl_slist_append(headers, "Accept: application/vnd.github+json");
+        std::string authHeader = "Authorization: Bearer " + this->githubToken;
+        headers = curl_slist_append(headers, authHeader.c_str());
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+        std::string response;
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, SubtitleConfig::writeCallback);
+
+        res = curl_easy_perform(curl);
+        if (res == CURLE_OK)
+        {
+            nlohmann::json jsonRes = nlohmann::json::parse(response);
+            this->githubChatModels.clear();
+            if (jsonRes.is_array())
+            {
+                for (const auto &model : jsonRes)
+                {
+                    if (model.contains("id") && model["id"].is_string())
+                    {
+                        QString modelId = QString::fromStdString(model["id"].get<std::string>());
+                        this->githubChatModels.append(modelId);
+                    }
+                }
+            }
+            ui->translateModels->addItems(this->githubChatModels);
+        }
+        else
+        {
+            qDebug() << "Curl failed:" << curl_easy_strerror(res);
+            qDebug() << "Error code:" << res;
+        }
+        curl_slist_free_all(headers);
+    }
+    curl_easy_cleanup(curl);
 }
