@@ -17,8 +17,7 @@ SubtitleItem::SubtitleItem(QWidget* parent): QWidget(parent), ui(new Ui::Subtitl
     this->uuid = QUuid::createUuid();
 
     connect(ui->subtitleItemSettings, &QPushButton::clicked, this, [this](){
-        SubtitleConfig *subtitleConfig = new SubtitleConfig(this);
-        subtitleConfig->show();
+        this->subtitleConfig->show();
     });
 }
 
@@ -126,4 +125,25 @@ void SubtitleItem::setEndMillisecond(int ms) {
 }
 void SubtitleItem::setContent(const QString &content) {
     ui->subtitleContent->setPlainText(content);
+}
+
+QString SubtitleItem::openaiTranslate()
+{
+
+}
+
+QString SubtitleItem::githubModelTranslate()
+{
+
+}
+
+QString SubtitleItem::translate()
+{
+    CURL *curl = curl_easy_init();
+    if (!curl)
+    {
+        std::map<QString, QVariant> subtitleItemConfig = this->subtitleConfig->getConfigs();
+
+    };
+    curl_easy_cleanup(curl);
 }

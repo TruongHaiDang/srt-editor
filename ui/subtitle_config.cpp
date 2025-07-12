@@ -251,3 +251,59 @@ void SubtitleConfig::getGithubChatModels()
     }
     curl_easy_cleanup(curl);
 }
+
+std::map<QString, QVariant> SubtitleConfig::getConfigs()
+{
+    std::map<QString, QVariant> configs;
+
+    // Speech
+    configs["speechModel"] = ui->speechModels->currentText();
+    configs["speechVoiceName"] = ui->speechVoices->currentText();
+    // Lấy voice_id từ map ánh xạ
+    configs["speechVoiceId"] = elevenlabsVoiceNameToId.value(ui->speechVoices->currentText());
+    configs["speechSpeed"] = ui->speechSpeed->value();
+    configs["speechInstructions"] = ui->openaiSpeechInstructions->toPlainText();
+    configs["speechLanguage"] = ui->speechLanguage->currentText();
+    configs["speechFileFormat"] = ui->speechFileFormat->currentText();
+
+    // Translate
+    configs["translateModel"] = ui->translateModels->currentText();
+    configs["translateLanguage"] = ui->translateLanguage->currentText();
+
+    return configs;
+}
+
+/**
+ * Lưu config cho một subtitle item vào QSettings group.
+ * @param itemId: Định danh subtitle item (ví dụ: số thứ tự dòng)
+ * @param configs: Map chứa các config cần lưu
+ */
+void SubtitleConfig::saveConfigForSubtitleItem(int itemId, const std::map<QString, QVariant>& configs)
+{
+    QSettings settings("haidanghth910", "srteditor");
+    settings.beginGroup(QString("SubtitleItems/%1").arg(itemId));
+    for (const auto& pair : configs)
+    {
+        settings.setValue(pair.first, pair.second);
+    }
+    settings.endGroup();
+}
+
+/**
+ * Đọc config cho một subtitle item từ QSettings group.
+ * @param itemId: Định danh subtitle item
+ * @return: Map chứa các config đã lưu
+ */
+std::map<QString, QVariant> SubtitleConfig::loadConfigForSubtitleItem(int itemId)
+{
+    QSettings settings("haidanghth910", "srteditor");
+    std::map<QString, QVariant> configs;
+    settings.beginGroup(QString("SubtitleItems/%1").arg(itemId));
+    QStringList keys = settings.childKeys();
+    for (const QString& key : keys)
+    {
+        configs[key] = settings.value(key);
+    }
+    settings.endGroup();
+    return configs;
+}

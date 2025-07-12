@@ -9,6 +9,10 @@
 #include <QUuid>
 #include <QCheckBox>
 #include "subtitle_config.h"
+#include <map>
+#include <QString>
+#include <QVariant>
+#include <curl/curl.h>
 
 namespace Ui {
     class SubtitleItem;
@@ -30,6 +34,7 @@ class SubtitleItem : public QWidget
 private:
     Ui::SubtitleItem *ui;
     QUuid uuid;
+    SubtitleConfig *subtitleConfig = new SubtitleConfig(this);
 
 public:
     /**
@@ -107,6 +112,14 @@ public:
      */
     QCheckBox *getSelectedCheckbox() const;
     ///@}
+
+    QString openaiTranslate();
+    QString githubModelTranslate();
+    QString translate();
+
+    QString openaiTextToSpeech();
+    QString elevenlabsTextToSpeech();
+    QString textToSpeech();
 };
 
 #endif

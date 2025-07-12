@@ -16,6 +16,8 @@
 #include <QDebug>
 #include <QSettings>
 #include <QMap>
+#include <QVariant>
+#include <map>
 
 namespace Ui {
     class SubtitleConfig;
@@ -61,6 +63,22 @@ private:
 public:
     explicit SubtitleConfig(QWidget* parent = nullptr);
     ~SubtitleConfig();
+
+    std::map<QString, QVariant> getConfigs();
+
+    /**
+     * Lưu config cho một subtitle item theo id vào QSettings group.
+     * @param itemId: Định danh subtitle item (ví dụ: số thứ tự dòng)
+     * @param configs: Map chứa các config cần lưu
+     */
+    void saveConfigForSubtitleItem(int itemId, const std::map<QString, QVariant>& configs);
+
+    /**
+     * Đọc config cho một subtitle item theo id từ QSettings group.
+     * @param itemId: Định danh subtitle item
+     * @return: Map chứa các config đã lưu
+     */
+    std::map<QString, QVariant> loadConfigForSubtitleItem(int itemId);
 };
 
 #endif
