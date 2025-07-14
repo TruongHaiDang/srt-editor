@@ -13,6 +13,8 @@
 #include <QString>
 #include <QVariant>
 #include <curl/curl.h>
+#include <sstream>
+#include <nlohmann/json.hpp>
 
 namespace Ui {
     class SubtitleItem;
@@ -35,6 +37,7 @@ private:
     Ui::SubtitleItem *ui;
     QUuid uuid;
     SubtitleConfig *subtitleConfig = new SubtitleConfig(this);
+    static size_t writeCallback(void *ptr, size_t size, size_t nmemb, void *userData);
 
 public:
     /**
@@ -113,7 +116,7 @@ public:
     QCheckBox *getSelectedCheckbox() const;
     ///@}
 
-    QString openaiTranslate();
+    QString openaiTranslate(std::string srcLang, std::string dstLang, float temperature = 1.0f, float topp = 1.0f, int maxTokens = 1024);
     QString githubModelTranslate();
     QString translate();
 

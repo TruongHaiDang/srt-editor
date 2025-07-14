@@ -29,6 +29,13 @@ SubtitleItem::~SubtitleItem()
 {
 }
 
+size_t SubtitleConfig::writeCallback(void *ptr, size_t size, size_t nmemb, void *userData)
+{
+    size_t total = size * nmemb;
+    static_cast<std::string *>(userData)->append((char *)ptr, total);
+    return total;
+}
+
 /**
  * @brief Update the numeric order label displayed in the UI.
  */
@@ -127,9 +134,102 @@ void SubtitleItem::setContent(const QString &content) {
     ui->subtitleContent->setPlainText(content);
 }
 
-QString SubtitleItem::openaiTranslate()
+QString SubtitleItem::openaiTranslate(std::string srcLang, std::string dstLang, float temperature = 1.0f, float topp = 1.0f, int maxTokens = 1024)
 {
+    // 1. Tạo prompt
+    std::ostringstream oss;
+    oss << "You are a professional translator. "
+        << "Translate all user input from " << srcLang << " to " << dstLang << " accurately and naturally. "
+        << "Do not explain. Do not interpret. Only return the translated text. "
+        << "Preserve formatting such as line breaks, punctuation, and special characters.";
+    std::string systemPrompt = oss.str();
 
+    // 2. Lấy nội dung cần dịch
+    std::string inputText = this->ui->subtitleContent->toPlainText().toStdString();
+
+    // 3. Tạo JSON payload
+    nlohmann::json payload = {
+        {"model", "gpt-4.1"},
+        {"input", {
+            {
+                {"role", "system"},
+                {"content", {
+                    {
+                        {"type", "input_text"},
+                        {"text", systemPrompt}  // std::string hoặc QString.toStdString()
+                    }
+                }}
+            },
+            {
+                {"role", "user"},
+                {"content", {
+                    {
+                        {"type", "input_text"},
+                        {"text", inputText}  // nội dung cần dịch, std::string
+                    }
+                }}
+            }
+        }},
+        {"text", {
+            {"format", {
+                {"type", "text"}
+            }}
+        }},
+        {"reasoning", nlohmann::json::object()},
+        {"tools", nlohmann::json::array()},
+        {"temperature", temperature},
+        {"max_output_tokens", maxTokens},
+        {"top_p", topp}
+    };
+
+    // 4. Gửi request bằng libcurl
+    CURL* curl = curl_easy_init();
+    std::string response;
+
+    if (curl) {
+        // 4.1. Lấy API key từ cấu hình Qt
+        QSettings settings("haidanghth910", "srteditor");
+        QString apiKey = settings.value("translate/apiKey").toString();
+        std::string apiKeyStr = apiKey.toStdString();
+
+        // 4.2. Cấu hình libcurl
+        struct curl_slist* headers = nullptr;
+        headers = curl_slist_append(headers, "Content-Type: application/json");
+        headers = curl_slist_append(headers, ("Authorization: Bearer " + apiKeyStr).c_str());
+
+        curl_easy_setopt(curl, CURLOPT_URL, "https://api.openai.com/v1/responses");
+        curl_easy_setopt(curl, CURLOPT_POST, 1L);
+
+        std::string payloadStr = payload.dump();
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, payloadStr.c_str());
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+        // Ghi phản hồi vào response string
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+
+        CURLcode res = curl_easy_perform(curl);
+
+        curl_slist_free_all(headers);
+        curl_easy_cleanup(curl);
+
+        if (res != CURLE_OK) {
+            return "[OpenAI Error: " + QString::fromStdString(curl_easy_strerror(res)) + "]";
+        }
+    }
+
+    // 5. Parse phản hồi để lấy kết quả dịch
+    try {
+        auto j = nlohmann::json::parse(response);
+
+        if (j.contains("output") && j["output"].is_string()) {
+            return QString::fromStdString(j["output"]);
+        } else {
+            return "[Invalid OpenAI Response]";
+        }
+    } catch (const std::exception& e) {
+        return "[JSON Parse Error: " + QString::fromStdString(e.what()) + "]";
+    }
 }
 
 QString SubtitleItem::githubModelTranslate()
