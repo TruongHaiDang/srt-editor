@@ -147,8 +147,9 @@ void MainWindow::selectOutputSpeechDir()
         this,
         "Select the output folder for speech mp3 files",
         QDir::homePath(),
-        QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
-    statusBar()->showMessage("Output dir: " + this->outputSpeechDir);
+        QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks).toStdString();
+    
+    statusBar()->showMessage("Output dir: " + QString::fromStdString(this->outputSpeechDir));
 }
 
 /**
@@ -363,5 +364,8 @@ void MainWindow::translateAll()
     
 void MainWindow::translateSelected()
 {
-
+    for (SubtitleItem *item: subtitles)
+    {
+        item->textToSpeech(this->outputSpeechDir);
+    }
 }

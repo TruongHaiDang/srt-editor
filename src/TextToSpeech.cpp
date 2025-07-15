@@ -14,7 +14,7 @@ static size_t writeCallback(void* ptr, size_t size, size_t nmemb, void* userdata
     return total;
 }
 
-void TextToSpeech::openaiTextToSpeech(std::string text, std::string outputDir, float speed, std::string model, std::string voice, std::string instructions, std::string outputFile, std::string apiKey)
+void TextToSpeech::openaiTextToSpeech(std::string text, std::string outputDir, std::string model, std::string voice, std::string instructions, std::string outputFile, std::string apiKey)
 {
     // Tạo JSON body
     nlohmann::json bodyJson = {

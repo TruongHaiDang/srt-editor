@@ -16,6 +16,7 @@
 #include <sstream>
 #include <nlohmann/json.hpp>
 #include "Translator.h"
+#include "TextToSpeech.h"
 
 namespace Ui {
     class SubtitleItem;
@@ -117,7 +118,7 @@ public:
     ///@}
 
     void translate();
-    void textToSpeech();
+    void textToSpeech(std::string outputDir);
 };
 
 #endif

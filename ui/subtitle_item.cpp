@@ -146,16 +146,18 @@ void SubtitleItem::translate()
     ui->subtitleContent->setText(QString::fromStdString(result));
 }
 
-void SubtitleItem::textToSpeech()
+void SubtitleItem::textToSpeech(std::string outputDir)
 {
     QSettings settings("haidanghth910", "srteditor");
     std::string ttsProvider = settings.value("tts/provider", "OpenAI").toString().toStdString();
+    std::string key = settings.value("tts/apiKey", "").toString().toStdString();
+
+    std::string subtitle = ui->subtitleContent->toPlainText().toStdString();
+    std::map<QString, QVariant> configs = this->subtitleConfig->getConfigs();
+    
+    TextToSpeech tts;
     if (ttsProvider == "OpenAI")
-    {
-
-    }
-    else if (ttsProvider == "OpenAI")
-    {
-
-    }
+        tts.openaiTextToSpeech(subtitle, outputDir, configs["speechModel"].toString().toStdString(), configs["speechVoiceName"].toString().toStdString(), configs["speechInstructions"].toString().toStdString(), "", key);
+    // else if (ttsProvider == "ElevenLabs")
+    //     tts.elevenlabsTextToSpeech(subtitle, outputDir, );
 }

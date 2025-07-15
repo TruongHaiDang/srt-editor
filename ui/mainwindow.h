@@ -45,7 +45,7 @@ class MainWindow: public QMainWindow
     Q_OBJECT
 
 private:
-    QString outputSpeechDir;
+    std::string outputSpeechDir;
     Ui::MainWindow *ui;
     QVBoxLayout *subtitleContainerLayout = new QVBoxLayout();
     QList<SubtitleItem*> subtitles;
