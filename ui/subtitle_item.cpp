@@ -158,6 +158,8 @@ void SubtitleItem::textToSpeech(std::string outputDir)
     TextToSpeech tts;
     if (ttsProvider == "OpenAI")
         tts.openaiTextToSpeech(subtitle, outputDir, configs["speechModel"].toString().toStdString(), configs["speechVoiceName"].toString().toStdString(), configs["speechInstructions"].toString().toStdString(), "", key);
-    // else if (ttsProvider == "ElevenLabs")
-    //     tts.elevenlabsTextToSpeech(subtitle, outputDir, );
+    else if (ttsProvider == "ElevenLabs")
+        tts.elevenlabsTextToSpeech(subtitle, outputDir, configs["speechVoiceId"].toString().toStdString(), configs["speechModel"].toString().toStdString(), configs["speechFileFormat"].toString().toStdString(), "", key);
+    
+    
 }
