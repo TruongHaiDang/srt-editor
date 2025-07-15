@@ -355,7 +355,10 @@ void MainWindow::loadAppSettings()
 
 void MainWindow::translateAll()
 {
-
+    for (SubtitleItem *item: subtitles)
+    {
+        item->translate();
+    }
 }
     
 void MainWindow::translateSelected()

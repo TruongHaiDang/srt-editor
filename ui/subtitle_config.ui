@@ -221,12 +221,12 @@
             <item>
              <widget class="QLabel" name="label_11">
               <property name="text">
-               <string>Language</string>
+               <string>Source Language</string>
               </property>
              </widget>
             </item>
             <item>
-             <widget class="QComboBox" name="translateLanguage">
+             <widget class="QComboBox" name="srcLanguage">
               <property name="layoutDirection">
                <enum>Qt::RightToLeft</enum>
               </property>
@@ -238,6 +238,49 @@
               <item>
                <property name="text">
                 <string>English</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>Japanese</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>Chinese</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>Korean</string>
+               </property>
+              </item>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayout_12" stretch="0,1">
+            <item>
+             <widget class="QLabel" name="label_13">
+              <property name="text">
+               <string>Destination Language</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QComboBox" name="dstLanguage">
+              <property name="layoutDirection">
+               <enum>Qt::RightToLeft</enum>
+              </property>
+              <item>
+               <property name="text">
+                <string>English</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>Vietnamese</string>
                </property>
               </item>
               <item>

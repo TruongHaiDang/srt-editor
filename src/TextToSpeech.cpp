@@ -14,7 +14,7 @@ static size_t writeCallback(void* ptr, size_t size, size_t nmemb, void* userdata
     return total;
 }
 
-void TextToSpeech::openaiTextToSpeech(std::string text, std::string outputDir, float speed, std::string model, std::string voice, std::string instructions, std::string outputFile)
+void TextToSpeech::openaiTextToSpeech(std::string text, std::string outputDir, float speed, std::string model, std::string voice, std::string instructions, std::string outputFile, std::string apiKey)
 {
     // Tạo JSON body
     nlohmann::json bodyJson = {
@@ -29,7 +29,7 @@ void TextToSpeech::openaiTextToSpeech(std::string text, std::string outputDir, f
     if (!curl) return;
 
     struct curl_slist *headers = nullptr;
-    std::string authHeader = "Authorization: Bearer " + openaiApiKey;
+    std::string authHeader = "Authorization: Bearer " + apiKey;
     headers = curl_slist_append(headers, authHeader.c_str());
     headers = curl_slist_append(headers, "Content-Type: application/json");
 
@@ -69,7 +69,7 @@ void TextToSpeech::openaiTextToSpeech(std::string text, std::string outputDir, f
     curl_easy_cleanup(curl);
 }
 
-void TextToSpeech::elevenlabsTextToSpeech(std::string text, std::string outputDir, std::string voiceId, std::string modelId, std::string outputFormat, std::string outputFile)
+void TextToSpeech::elevenlabsTextToSpeech(std::string text, std::string outputDir, std::string voiceId, std::string modelId, std::string outputFormat, std::string outputFile, std::string apiKey)
 {
     // Tạo endpoint
     std::string url = "https://api.elevenlabs.io/v1/text-to-speech/" + voiceId;
@@ -86,7 +86,7 @@ void TextToSpeech::elevenlabsTextToSpeech(std::string text, std::string outputDi
     if (!curl) return;
 
     struct curl_slist *headers = nullptr;
-    std::string authHeader = "xi-api-key: " + this->elevenlabsApiKey;
+    std::string authHeader = "xi-api-key: " + apiKey;
     headers = curl_slist_append(headers, authHeader.c_str());
     headers = curl_slist_append(headers, "Content-Type: application/json");
 
@@ -124,20 +124,4 @@ void TextToSpeech::elevenlabsTextToSpeech(std::string text, std::string outputDi
 
     curl_slist_free_all(headers);
     curl_easy_cleanup(curl);
-}
-
-void TextToSpeech::setOpenaiApiKey(const std::string& apiKey) {
-    openaiApiKey = apiKey;
-}
-
-std::string TextToSpeech::getOpenaiApiKey() const {
-    return openaiApiKey;
-}
-
-void TextToSpeech::setElevenlabsApiKey(const std::string& apiKey) {
-    elevenlabsApiKey = apiKey;
-}
-
-std::string TextToSpeech::getElevenlabsApiKey() const {
-    return elevenlabsApiKey;
 }

@@ -10,21 +10,14 @@
 class Translator
 {
 private:
-    std::string githubToken;
-    std::string openaiApiKey;
     static size_t writeCallback(void* ptr, size_t size, size_t nmemb, void* userData);
 
 public:
     Translator();
     ~Translator();
 
-    void setGithubToken(const std::string& token);
-    std::string getGithubToken() const;
-    void setOpenaiApiKey(const std::string& apiKey);
-    std::string getOpenaiApiKey() const;
-
-    std::string openaiTranslate(std::string subtitle, std::string lang, std::string modelName);
-    std::string githubModelsTranslate(std::string subtitle, std::string lang, std::string modelName);
+    std::string openaiTranslate(std::string subtitle, std::string srcLang, std::string dstLang, std::string apiKey, float temperature = 1.0f, float topp = 1.0f, int maxTokens = 1024);
+    std::string githubModelsTranslate(std::string subtitle, std::string srcLang, std::string dstLang, std::string token, float temperature = 1.0f, float topp = 1.0f, int maxTokens = 1024);
 };
 
 #endif

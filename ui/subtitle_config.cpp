@@ -7,13 +7,9 @@ SubtitleConfig::SubtitleConfig(QWidget *parent) : QDialog(parent), ui(new Ui::Su
     QSettings settings("haidanghth910", "srteditor");
     std::string translateProvider = settings.value("translate/provider", "OpenAI").toString().toStdString();
     if (translateProvider == "OpenAI")
-    {
         this->getOpenaiModels();
-    }
     else if (translateProvider == "Github Models")
-    {
         this->getGithubChatModels();
-    };
     
     std::string speechProvider = settings.value("tts/provider", "OpenAI").toString().toStdString();
     if (speechProvider == "OpenAI")
@@ -268,7 +264,8 @@ std::map<QString, QVariant> SubtitleConfig::getConfigs()
 
     // Translate
     configs["translateModel"] = ui->translateModels->currentText();
-    configs["translateLanguage"] = ui->translateLanguage->currentText();
+    configs["srcLang"] = ui->srcLanguage->currentText();
+    configs["dstLang"] = ui->dstLanguage->currentText();
 
     return configs;
 }
