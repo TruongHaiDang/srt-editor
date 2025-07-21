@@ -14,7 +14,7 @@ static size_t writeCallback(void* ptr, size_t size, size_t nmemb, void* userdata
     return total;
 }
 
-void TextToSpeech::openaiTextToSpeech(std::string text, std::string outputDir, std::string model, std::string voice, std::string instructions, std::string outputFile, std::string apiKey)
+std::string TextToSpeech::openaiTextToSpeech(std::string text, std::string outputDir, std::string model, std::string voice, std::string instructions, std::string outputFile, std::string apiKey)
 {
     // Tạo JSON body
     nlohmann::json bodyJson = {
@@ -26,7 +26,7 @@ void TextToSpeech::openaiTextToSpeech(std::string text, std::string outputDir, s
     std::string body = bodyJson.dump();
 
     CURL *curl = curl_easy_init();
-    if (!curl) return;
+    if (!curl) return "";
 
     struct curl_slist *headers = nullptr;
     std::string authHeader = "Authorization: Bearer " + apiKey;
@@ -43,9 +43,9 @@ void TextToSpeech::openaiTextToSpeech(std::string text, std::string outputDir, s
 
     CURLcode res = curl_easy_perform(curl);
 
+    std::string outPath = "";
     if (res == CURLE_OK) {
         // Xác định tên file đầu ra
-        std::string outPath;
         if (outputFile.empty()) {
             auto now = std::chrono::system_clock::now();
             auto t = std::chrono::system_clock::to_time_t(now);
@@ -67,9 +67,11 @@ void TextToSpeech::openaiTextToSpeech(std::string text, std::string outputDir, s
 
     curl_slist_free_all(headers);
     curl_easy_cleanup(curl);
+
+    return outPath;
 }
 
-void TextToSpeech::elevenlabsTextToSpeech(std::string text, std::string outputDir, std::string voiceId, std::string modelId, std::string outputFormat, std::string outputFile, std::string apiKey)
+std::string TextToSpeech::elevenlabsTextToSpeech(std::string text, std::string outputDir, std::string voiceId, std::string modelId, std::string outputFormat, std::string outputFile, std::string apiKey)
 {
     // Tạo endpoint
     std::string url = "https://api.elevenlabs.io/v1/text-to-speech/" + voiceId;
@@ -83,7 +85,7 @@ void TextToSpeech::elevenlabsTextToSpeech(std::string text, std::string outputDi
     std::string body = bodyJson.dump();
 
     CURL *curl = curl_easy_init();
-    if (!curl) return;
+    if (!curl) return "";
 
     struct curl_slist *headers = nullptr;
     std::string authHeader = "xi-api-key: " + apiKey;
@@ -100,9 +102,9 @@ void TextToSpeech::elevenlabsTextToSpeech(std::string text, std::string outputDi
 
     CURLcode res = curl_easy_perform(curl);
 
+    std::string outPath = "";
     if (res == CURLE_OK) {
         // Xác định tên file đầu ra
-        std::string outPath;
         if (outputFile.empty()) {
             auto now = std::chrono::system_clock::now();
             auto t = std::chrono::system_clock::to_time_t(now);
@@ -124,4 +126,6 @@ void TextToSpeech::elevenlabsTextToSpeech(std::string text, std::string outputDi
 
     curl_slist_free_all(headers);
     curl_easy_cleanup(curl);
+
+    return outPath;
 }
