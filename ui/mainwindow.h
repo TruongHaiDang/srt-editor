@@ -103,6 +103,8 @@ private:
     
     void translateSelected();
 
+    void updateEndTime();
+
 public:
     /**
      * @brief Default constructor – builds the UI and connects signals.

@@ -161,9 +161,4 @@ void SubtitleItem::textToSpeech(std::string outputDir)
         audioFilePath = tts.openaiTextToSpeech(subtitle, outputDir, configs["speechModel"].toString().toStdString(), configs["speechVoiceName"].toString().toStdString(), configs["speechInstructions"].toString().toStdString(), "", key);
     else if (ttsProvider == "ElevenLabs")
         audioFilePath = tts.elevenlabsTextToSpeech(subtitle, outputDir, configs["speechVoiceId"].toString().toStdString(), configs["speechModel"].toString().toStdString(), configs["speechFileFormat"].toString().toStdString(), "", key);
-    
-    if (!audioFilePath.empty())
-    {
-
-    }
 }

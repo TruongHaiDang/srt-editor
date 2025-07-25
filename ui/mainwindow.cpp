@@ -32,6 +32,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     connect(ui->actionSettings, &QAction::triggered, this, &MainWindow::openSettings);
     connect(ui->actionTranslate_all, &QAction::triggered, this, &MainWindow::translateAll);
     connect(ui->actionTranslate_selected, &QAction::triggered, this, &MainWindow::translateSelected);
+    connect(ui->actionUpdate_end_time, &QAction::triggered, this, &MainWindow::updateEndTime);
 
     statusBar()->showMessage("Ready");
 }
@@ -368,4 +369,17 @@ void MainWindow::translateSelected()
     {
         item->textToSpeech(this->outputSpeechDir);
     }
+}
+
+void MainWindow::updateEndTime()
+{
+    QString filePath = QFileDialog::getOpenFileName(
+        this,
+        "Open SRT File",
+        QDir::homePath(),
+        "SubRip Subtitle (*.srt);;All Files (*)"
+    );
+    if (filePath.isEmpty()) return;
+
+    
 }

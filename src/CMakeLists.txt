@@ -14,12 +14,14 @@ FetchContent_Declare(
     URL https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz)
 FetchContent_MakeAvailable(json)
 
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET libavformat libavcodec libavutil)
+find_path(FFMPEG_INCLUDE_DIR libavformat/avformat.h)
+find_library(AVFORMAT_LIB avformat)
+find_library(AVCODEC_LIB avcodec)
+find_library(AVUTIL_LIB avutil)
 
 file(GLOB_RECURSE SOURCES "./*.cpp")
 
 add_executable(${EXEC_NAME} ${SOURCES})
 target_link_libraries(${EXEC_NAME} PRIVATE Qt6::Core Qt6::Gui Qt6::Widgets "${EXEC_NAME}_UI")
 target_link_libraries(${EXEC_NAME} PRIVATE CURL::libcurl nlohmann_json::nlohmann_json)
-target_link_libraries(${EXEC_NAME} PRIVATE PkgConfig::FFMPEG)
+target_link_libraries(${EXEC_NAME} PRIVATE ${AVFORMAT_LIB} ${AVCODEC_LIB} ${AVUTIL_LIB})

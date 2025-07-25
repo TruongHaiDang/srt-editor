@@ -39,6 +39,7 @@ void SubtitleConfig::getOpenaiModels()
 {
     QSettings settings("haidanghth910", "srteditor");
     this->openaiApiKey = settings.value("translate/apiKey", "").toString().toStdString();
+    if (this->openaiApiKey.empty()) return;
 
     CURL *curl = curl_easy_init();
     if (curl)
@@ -89,6 +90,7 @@ void SubtitleConfig::getElevenlabsSpeechModels()
 {
     QSettings settings("haidanghth910", "srteditor");
     this->elevenlabsApiKey = settings.value("tts/apiKey", "").toString().toStdString();
+    if (this->elevenlabsApiKey.empty()) return;
 
     CURL *curl;
     CURLcode res;
@@ -143,6 +145,7 @@ void SubtitleConfig::getElevenlabsSpeechVoices()
 {
     QSettings settings("haidanghth910", "srteditor");
     this->elevenlabsApiKey = settings.value("tts/apiKey", "").toString().toStdString();
+    if (this->elevenlabsApiKey.empty()) return;
 
     CURL *curl;
     CURLcode res;
@@ -199,6 +202,7 @@ void SubtitleConfig::getGithubChatModels()
 {
     QSettings settings("haidanghth910", "srteditor");
     this->githubToken = settings.value("github/apiKey", "").toString().toStdString();
+    if (this->githubToken.empty()) return;
 
     CURL *curl;
     CURLcode res;

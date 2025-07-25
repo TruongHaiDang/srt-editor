@@ -89,6 +89,7 @@
      <addaction name="actionCurrent_subtitle"/>
     </widget>
     <addaction name="menuText_to_Speech"/>
+    <addaction name="actionUpdate_end_time"/>
     <addaction name="actionOutput_folder"/>
    </widget>
    <widget class="QMenu" name="menuTranslate">
@@ -183,6 +184,11 @@
   <action name="actionTranslate_selected">
    <property name="text">
     <string>Translate selected</string>
+   </property>
+  </action>
+  <action name="actionUpdate_end_time">
+   <property name="text">
+    <string>Update end time</string>
    </property>
   </action>
  </widget>
