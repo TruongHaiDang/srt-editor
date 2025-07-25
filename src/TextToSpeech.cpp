@@ -130,32 +130,23 @@ std::string TextToSpeech::elevenlabsTextToSpeech(std::string text, std::string o
     return outPath;
 }
 
-std::string TextToSpeech::getAudioLength(std::string filePath)
+TextToSpeech::AudioTime TextToSpeech::getAudioLength(const std::string& filePath)
 {
     AVFormatContext* fmt_ctx = nullptr;
+    AudioTime at = {0, 0, 0, 0};
 
     if (avformat_open_input(&fmt_ctx, filePath.c_str(), nullptr, nullptr) != 0)
-        return "";
-
+        return at;
     if (avformat_find_stream_info(fmt_ctx, nullptr) < 0) {
         avformat_close_input(&fmt_ctx);
-        return "";
+        return at;
     }
-
     double duration_sec = fmt_ctx->duration / (double)AV_TIME_BASE;
     avformat_close_input(&fmt_ctx);
 
-    // Chuyển sang hh:mm:ss,ms
-    int hours = static_cast<int>(duration_sec / 3600);
-    int minutes = static_cast<int>((duration_sec - hours * 3600) / 60);
-    int seconds = static_cast<int>(duration_sec) % 60;
-    int milliseconds = static_cast<int>((duration_sec - static_cast<int>(duration_sec)) * 1000);
-
-    std::ostringstream oss;
-    oss << std::setfill('0') << std::setw(2) << hours << ":"
-        << std::setw(2) << minutes << ":"
-        << std::setw(2) << seconds << ","
-        << std::setw(3) << milliseconds;
-
-    return oss.str();
+    at.hours = static_cast<int>(duration_sec / 3600);
+    at.minutes = static_cast<int>((duration_sec - at.hours * 3600) / 60);
+    at.seconds = static_cast<int>(duration_sec) % 60;
+    at.milliseconds = static_cast<int>((duration_sec - static_cast<int>(duration_sec)) * 1000);
+    return at;
 }

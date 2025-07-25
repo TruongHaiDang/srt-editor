@@ -381,5 +381,15 @@ void MainWindow::updateEndTime()
     );
     if (filePath.isEmpty()) return;
 
-    
+    if (this->selectedSubtitles.length() > 0)
+    {
+        TextToSpeech tts;
+        TextToSpeech::AudioTime audioTime = tts.getAudioLength(filePath.toStdString());
+        this->selectedSubtitles.last()->setEndHour(audioTime.hours);
+        this->selectedSubtitles.last()->setEndMinute(audioTime.minutes);
+        this->selectedSubtitles.last()->setEndSecond(audioTime.seconds);
+        this->selectedSubtitles.last()->setEndMillisecond(audioTime.milliseconds);
+    };
+
+    this->ui->statusbar->showMessage("Set end time for the latest selected subtitle.");
 }
