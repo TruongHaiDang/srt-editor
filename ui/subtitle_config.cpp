@@ -201,7 +201,7 @@ void SubtitleConfig::getElevenlabsSpeechVoices()
 void SubtitleConfig::getGithubChatModels()
 {
     QSettings settings("haidanghth910", "srteditor");
-    this->githubToken = settings.value("github/apiKey", "").toString().toStdString();
+    this->githubToken = settings.value("translate/apiKey", "").toString().toStdString();
     if (this->githubToken.empty()) return;
 
     CURL *curl;
