@@ -35,6 +35,13 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     connect(ui->actionUpdate_end_time, &QAction::triggered, this, &MainWindow::updateEndTime);
     connect(ui->actionCurrent_subtitle, &QAction::triggered, this, &MainWindow::currentSubtitleTextToSpeech);
 
+
+    progressBar = new QProgressBar(this);
+    progressBar->setVisible(false);
+    progressBar->setMinimum(0);
+    progressBar->setMaximum(100);
+    statusBar()->addPermanentWidget(progressBar);
+    
     statusBar()->showMessage("Ready");
 }
 
@@ -203,6 +210,10 @@ void MainWindow::appendOrRemoveSelectedSubtitle(int state)
  */
 void MainWindow::openSrtFile()
 {
+    progressBar->setVisible(true);
+    progressBar->setValue(0);
+    statusBar()->showMessage("Loading subtitles...");
+
     QString filePath = QFileDialog::getOpenFileName(
         this,
         "Open SRT File",
@@ -230,14 +241,24 @@ void MainWindow::openSrtFile()
     // Phân tích từng block subtitle
     QStringList blocks = srtContent.split(QRegularExpression("\n\s*\n"), Qt::SkipEmptyParts);
     int order = 0;
-    for (const QString &block : blocks) {
+    int totalBlocks = blocks.size();
+    progressBar->setMaximum(totalBlocks);
+    
+    for (int i = 0; i < blocks.size(); ++i) {
+        const QString &block = blocks[i];
         QStringList lines = block.split('\n', Qt::SkipEmptyParts);
-        if (lines.size() < 3) continue;
+        if (lines.size() < 3) {
+            progressBar->setValue(i + 1);
+            continue;
+        }
 
         QString timeLine = lines[1].trimmed();
         QRegularExpression timeRx("([0-9]{2}):([0-9]{2}):([0-9]{2}),([0-9]{3}) --> ([0-9]{2}):([0-9]{2}):([0-9]{2}),([0-9]{3})");
         QRegularExpressionMatch match = timeRx.match(timeLine);
-        if (!match.hasMatch()) continue;
+        if (!match.hasMatch()) {
+            progressBar->setValue(i + 1);
+            continue;
+        }
 
         SubtitleItem *item = new SubtitleItem();
         item->setOrder(order++);
@@ -251,17 +272,26 @@ void MainWindow::openSrtFile()
         item->setEndMillisecond(match.captured(8).toInt());
 
         QString content;
-        for (int i = 2; i < lines.size(); ++i) {
-            if (i > 2) content += "\n";
-            content += lines[i];
+        for (int j = 2; j < lines.size(); ++j) {
+            if (j > 2) content += "\n";
+            content += lines[j];
         }
         item->setContent(content);
 
         connect(item->getSelectedCheckbox(), &QCheckBox::stateChanged, this, &MainWindow::appendOrRemoveSelectedSubtitle);
         subtitleContainerLayout->addWidget(item);
         subtitles.append(item);
+
+        // Cập nhật progress bar cho mỗi item được xử lý
+        progressBar->setValue(i + 1);
+        
+        // Cho phép UI update mỗi 5 items để tránh lag quá nhiều
+        if (i % 5 == 0) {
+            QCoreApplication::processEvents();
+        }
     }
 
+    progressBar->setVisible(false);
     statusBar()->showMessage("Opened: " + filePath);
 }
 

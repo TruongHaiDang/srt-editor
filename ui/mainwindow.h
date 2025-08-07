@@ -26,6 +26,7 @@
 #include <QString>
 #include <QDir>
 #include <QUuid>
+#include <QProgressBar>
 
 namespace Ui {
     class MainWindow;
@@ -51,6 +52,7 @@ private:
     QList<SubtitleItem*> subtitles;
     QList<SubtitleItem*> selectedSubtitles;
     QString srtFilePath;
+    QProgressBar *progressBar = nullptr;
 
     /**
      * @brief Recursively delete all items inside a layout.
