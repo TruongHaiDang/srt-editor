@@ -105,6 +105,10 @@ private:
 
     void updateEndTime();
 
+    void currentSubtitleTextToSpeech();
+
+    void allSubtitlesTextToSpeech();
+
 public:
     /**
      * @brief Default constructor – builds the UI and connects signals.

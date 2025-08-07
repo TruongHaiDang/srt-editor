@@ -26,7 +26,10 @@ std::string TextToSpeech::openaiTextToSpeech(std::string text, std::string outpu
     std::string body = bodyJson.dump();
 
     CURL *curl = curl_easy_init();
-    if (!curl) return "";
+    if (!curl) {
+        qDebug() << "Error: curl_easy_init failed";
+        return "";
+    }
 
     struct curl_slist *headers = nullptr;
     std::string authHeader = "Authorization: Bearer " + apiKey;
@@ -85,7 +88,10 @@ std::string TextToSpeech::elevenlabsTextToSpeech(std::string text, std::string o
     std::string body = bodyJson.dump();
 
     CURL *curl = curl_easy_init();
-    if (!curl) return "";
+    if (!curl) {
+        qDebug() << "Error: curl_easy_init failed";
+        return "";
+    }
 
     struct curl_slist *headers = nullptr;
     std::string authHeader = "xi-api-key: " + apiKey;
@@ -122,6 +128,8 @@ std::string TextToSpeech::elevenlabsTextToSpeech(std::string text, std::string o
             outFileStream.write(response.c_str(), response.size());
             outFileStream.close();
         }
+    } else {
+        qDebug() << "Error: " << curl_easy_strerror(res);
     }
 
     curl_slist_free_all(headers);

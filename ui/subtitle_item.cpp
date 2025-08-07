@@ -157,6 +157,7 @@ void SubtitleItem::textToSpeech(std::string outputDir)
     
     TextToSpeech tts;
     std::string audioFilePath;
+    qDebug() << "TTS Provider: " << ttsProvider.c_str();
     if (ttsProvider == "OpenAI")
         audioFilePath = tts.openaiTextToSpeech(subtitle, outputDir, configs["speechModel"].toString().toStdString(), configs["speechVoiceName"].toString().toStdString(), configs["speechInstructions"].toString().toStdString(), "", key);
     else if (ttsProvider == "ElevenLabs")

@@ -33,6 +33,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     connect(ui->actionTranslate_all, &QAction::triggered, this, &MainWindow::translateAll);
     connect(ui->actionTranslate_selected, &QAction::triggered, this, &MainWindow::translateSelected);
     connect(ui->actionUpdate_end_time, &QAction::triggered, this, &MainWindow::updateEndTime);
+    connect(ui->actionCurrent_subtitle, &QAction::triggered, this, &MainWindow::currentSubtitleTextToSpeech);
 
     statusBar()->showMessage("Ready");
 }
@@ -361,14 +362,30 @@ void MainWindow::translateAll()
     {
         item->translate();
     }
+    statusBar()->showMessage("Translation for all subtitles is completed.");
 }
-    
+
 void MainWindow::translateSelected()
 {
-    for (SubtitleItem *item: subtitles)
+    SubtitleItem *item = selectedSubtitles.last();
+    item->translate();
+    statusBar()->showMessage("Translation for the latest selected subtitle is completed.");
+}
+
+void MainWindow::allSubtitlesTextToSpeech()
+{
+    for (SubtitleItem *item: selectedSubtitles)
     {
         item->textToSpeech(this->outputSpeechDir);
     }
+    statusBar()->showMessage("Text to speech for selected subtitles is completed.");
+}
+
+void MainWindow::currentSubtitleTextToSpeech()
+{
+    SubtitleItem *item = selectedSubtitles.last();
+    item->textToSpeech(this->outputSpeechDir);
+    statusBar()->showMessage("Text to speech for the latest selected subtitle is completed.");
 }
 
 void MainWindow::updateEndTime()

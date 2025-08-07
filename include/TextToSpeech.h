@@ -10,6 +10,7 @@
 #include <nlohmann/json.hpp>
 #include <chrono>
 #include <iomanip>
+#include <QDebug>
 
 extern "C"
 {
