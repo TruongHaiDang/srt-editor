@@ -111,6 +111,8 @@ private:
 
     void allSubtitlesTextToSpeech();
 
+    void openOutputFolder();
+
 public:
     /**
      * @brief Default constructor – builds the UI and connects signals.

@@ -34,7 +34,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     connect(ui->actionTranslate_selected, &QAction::triggered, this, &MainWindow::translateSelected);
     connect(ui->actionUpdate_end_time, &QAction::triggered, this, &MainWindow::updateEndTime);
     connect(ui->actionCurrent_subtitle, &QAction::triggered, this, &MainWindow::currentSubtitleTextToSpeech);
-
+    connect(ui->actionView_audio_files, &QAction::triggered, this, &MainWindow::openOutputFolder);
 
     progressBar = new QProgressBar(this);
     progressBar->setVisible(false);
@@ -439,4 +439,12 @@ void MainWindow::updateEndTime()
     };
 
     this->ui->statusbar->showMessage("Set end time for the latest selected subtitle.");
+}
+
+void MainWindow::openOutputFolder()
+{
+    if (!this->outputSpeechDir.empty())
+    {
+        QDesktopServices::openUrl(QUrl::fromLocalFile(QString::fromStdString(this->outputSpeechDir)));
+    }
 }

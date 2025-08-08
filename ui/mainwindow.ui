@@ -90,7 +90,9 @@
     </widget>
     <addaction name="menuText_to_Speech"/>
     <addaction name="actionUpdate_end_time"/>
+    <addaction name="separator"/>
     <addaction name="actionOutput_folder"/>
+    <addaction name="actionView_audio_files"/>
    </widget>
    <widget class="QMenu" name="menuTranslate">
     <property name="title">
@@ -189,6 +191,11 @@
   <action name="actionUpdate_end_time">
    <property name="text">
     <string>Update end time</string>
+   </property>
+  </action>
+  <action name="actionView_audio_files">
+   <property name="text">
+    <string>View audio files</string>
    </property>
   </action>
  </widget>
