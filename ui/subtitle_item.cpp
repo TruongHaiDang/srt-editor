@@ -164,8 +164,40 @@ void SubtitleItem::textToSpeech(std::string outputDir)
         audioFilePath = tts.elevenlabsTextToSpeech(subtitle, outputDir, configs["speechVoiceId"].toString().toStdString(), configs["speechModel"].toString().toStdString(), configs["speechFileFormat"].toString().toStdString(), "", key);
 
     TextToSpeech::AudioTime audioTime = tts.getAudioLength(audioFilePath);
-    this->setEndHour(audioTime.hours);
-    this->setEndMinute(audioTime.minutes);
-    this->setEndSecond(audioTime.seconds);
-    this->setEndMillisecond(audioTime.milliseconds);
+    
+    // Lấy thời gian bắt đầu hiện tại
+    int startHour = this->getStartHour();
+    int startMinute = this->getStartMinute();
+    int startSecond = this->getStartSecond();
+    int startMillisecond = this->getStartMillisecond();
+    
+    // Tính toán thời gian kết thúc bằng cách cộng thời gian audio với thời gian bắt đầu
+    int endHour = startHour + audioTime.hours;
+    int endMinute = startMinute + audioTime.minutes;
+    int endSecond = startSecond + audioTime.seconds;
+    int endMillisecond = startMillisecond + audioTime.milliseconds;
+    
+    // Xử lý tràn số cho milliseconds
+    if (endMillisecond >= 1000) {
+        endSecond += endMillisecond / 1000;
+        endMillisecond %= 1000;
+    }
+    
+    // Xử lý tràn số cho seconds
+    if (endSecond >= 60) {
+        endMinute += endSecond / 60;
+        endSecond %= 60;
+    }
+    
+    // Xử lý tràn số cho minutes
+    if (endMinute >= 60) {
+        endHour += endMinute / 60;
+        endMinute %= 60;
+    }
+    
+    // Thiết lập thời gian kết thúc
+    this->setEndHour(endHour);
+    this->setEndMinute(endMinute);
+    this->setEndSecond(endSecond);
+    this->setEndMillisecond(endMillisecond);
 }

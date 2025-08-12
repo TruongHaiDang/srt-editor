@@ -70,7 +70,11 @@
           <widget class="QSpinBox" name="startSecondLbl"/>
          </item>
          <item>
-          <widget class="QSpinBox" name="startMiliSecondLbl"/>
+          <widget class="QSpinBox" name="startMiliSecondLbl">
+           <property name="maximum">
+            <number>999</number>
+           </property>
+          </widget>
          </item>
         </layout>
        </item>
@@ -103,7 +107,11 @@
           <widget class="QSpinBox" name="endSecondLbl"/>
          </item>
          <item>
-          <widget class="QSpinBox" name="endMiliSecondLbl"/>
+          <widget class="QSpinBox" name="endMiliSecondLbl">
+           <property name="maximum">
+            <number>999</number>
+           </property>
+          </widget>
          </item>
         </layout>
        </item>

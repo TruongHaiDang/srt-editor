@@ -290,31 +290,29 @@ std::map<QString, QVariant> SubtitleConfig::loadConfigForSubtitleItem(int itemId
     return configs;
 }
 
-void SubtitleConfig::showEvent(QShowEvent *event)
+void SubtitleConfig::showEvent(QShowEvent* event)
 {
     QDialog::showEvent(event);
-
-    static bool initialized = false;
-    if (initialized) return; // chỉ chạy 1 lần khi mở lần đầu
+    if (m_initialized) return; // chỉ chạy 1 lần cho instance này
 
     QSettings settings("haidanghth910", "srteditor");
-    std::string translateProvider = settings.value("translate/provider", "OpenAI").toString().toStdString();
+
+    std::string translateProvider =
+        settings.value("translate/provider", "OpenAI").toString().toStdString();
     if (translateProvider == "OpenAI")
         this->getOpenaiModels();
     else if (translateProvider == "Github Models")
         this->getGithubChatModels();
-    
-    std::string speechProvider = settings.value("tts/provider", "OpenAI").toString().toStdString();
-    if (speechProvider == "OpenAI")
-    {
+
+    std::string speechProvider =
+        settings.value("tts/provider", "OpenAI").toString().toStdString();
+    if (speechProvider == "OpenAI") {
         ui->speechVoices->addItems(this->openaiSpeechVoices);
         ui->speechModels->addItems(this->openaiSpeechModels);
-    }
-    else if (speechProvider == "ElevenLabs")
-    {
+    } else if (speechProvider == "ElevenLabs") {
         this->getElevenlabsSpeechModels();
         this->getElevenlabsSpeechVoices();
     }
 
-    initialized = true;
+    m_initialized = true;
 }

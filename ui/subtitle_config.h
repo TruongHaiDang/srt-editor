@@ -50,6 +50,7 @@ private:
     QList<QString> elevenlabsSpeechModels;
     QList<QString> elevenlabsSpeechVoices;
     QMap<QString, QString> elevenlabsVoiceNameToId;
+    bool m_initialized = false;
 
     static size_t writeCallback(void *ptr, size_t size, size_t nmemb, void *userData);
 

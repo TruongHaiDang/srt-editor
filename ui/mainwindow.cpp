@@ -388,10 +388,32 @@ void MainWindow::loadAppSettings()
 
 void MainWindow::translateAll()
 {
-    for (SubtitleItem *item: subtitles)
-    {
-        item->translate();
+    if (subtitles.isEmpty()) {
+        statusBar()->showMessage("No subtitles to translate.");
+        return;
     }
+
+    progressBar->setVisible(true);
+    progressBar->setMinimum(0);
+    progressBar->setMaximum(subtitles.size());
+    progressBar->setValue(0);
+    statusBar()->showMessage("Translating all subtitles...");
+
+    for (int i = 0; i < subtitles.size(); ++i)
+    {
+        SubtitleItem *item = subtitles[i];
+        item->translate();
+        
+        // Cập nhật progress bar
+        progressBar->setValue(i + 1);
+        
+        // Cho phép UI update mỗi 5 items để tránh lag
+        if (i % 5 == 0) {
+            QCoreApplication::processEvents();
+        }
+    }
+
+    progressBar->setVisible(false);
     statusBar()->showMessage("Translation for all subtitles is completed.");
 }
 
@@ -413,8 +435,30 @@ void MainWindow::allSubtitlesTextToSpeech()
 
 void MainWindow::currentSubtitleTextToSpeech()
 {
+    if (selectedSubtitles.isEmpty()) {
+        statusBar()->showMessage("No subtitle selected for text to speech.");
+        return;
+    }
+
+    progressBar->setVisible(true);
+    progressBar->setMinimum(0);
+    progressBar->setMaximum(100);
+    progressBar->setValue(0);
+    statusBar()->showMessage("Converting text to speech...");
+
     SubtitleItem *item = selectedSubtitles.last();
+    
+    // Cập nhật progress bar lên 50% khi bắt đầu
+    progressBar->setValue(50);
+    QCoreApplication::processEvents();
+    
     item->textToSpeech(this->outputSpeechDir);
+    
+    // Cập nhật progress bar lên 100% khi hoàn thành
+    progressBar->setValue(100);
+    QCoreApplication::processEvents();
+
+    progressBar->setVisible(false);
     statusBar()->showMessage("Text to speech for the latest selected subtitle is completed.");
 }
 
@@ -430,12 +474,45 @@ void MainWindow::updateEndTime()
 
     if (this->selectedSubtitles.length() > 0)
     {
+        SubtitleItem *selectedItem = this->selectedSubtitles.last();
         TextToSpeech tts;
         TextToSpeech::AudioTime audioTime = tts.getAudioLength(filePath.toStdString());
-        this->selectedSubtitles.last()->setEndHour(audioTime.hours);
-        this->selectedSubtitles.last()->setEndMinute(audioTime.minutes);
-        this->selectedSubtitles.last()->setEndSecond(audioTime.seconds);
-        this->selectedSubtitles.last()->setEndMillisecond(audioTime.milliseconds);
+        
+        // Lấy thời gian bắt đầu hiện tại
+        int startHour = selectedItem->getStartHour();
+        int startMinute = selectedItem->getStartMinute();
+        int startSecond = selectedItem->getStartSecond();
+        int startMillisecond = selectedItem->getStartMillisecond();
+        
+        // Tính toán thời gian kết thúc bằng cách cộng thời gian audio với thời gian bắt đầu
+        int endHour = startHour + audioTime.hours;
+        int endMinute = startMinute + audioTime.minutes;
+        int endSecond = startSecond + audioTime.seconds;
+        int endMillisecond = startMillisecond + audioTime.milliseconds;
+        
+        // Xử lý tràn số cho milliseconds
+        if (endMillisecond >= 1000) {
+            endSecond += endMillisecond / 1000;
+            endMillisecond %= 1000;
+        }
+        
+        // Xử lý tràn số cho seconds
+        if (endSecond >= 60) {
+            endMinute += endSecond / 60;
+            endSecond %= 60;
+        }
+        
+        // Xử lý tràn số cho minutes
+        if (endMinute >= 60) {
+            endHour += endMinute / 60;
+            endMinute %= 60;
+        }
+        
+        // Thiết lập thời gian kết thúc
+        selectedItem->setEndHour(endHour);
+        selectedItem->setEndMinute(endMinute);
+        selectedItem->setEndSecond(endSecond);
+        selectedItem->setEndMillisecond(endMillisecond);
     };
 
     this->ui->statusbar->showMessage("Set end time for the latest selected subtitle.");
