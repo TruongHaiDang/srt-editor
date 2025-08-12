@@ -3,25 +3,6 @@
 SubtitleConfig::SubtitleConfig(QWidget *parent) : QDialog(parent), ui(new Ui::SubtitleConfig)
 {
     ui->setupUi(this);
-
-    QSettings settings("haidanghth910", "srteditor");
-    std::string translateProvider = settings.value("translate/provider", "OpenAI").toString().toStdString();
-    if (translateProvider == "OpenAI")
-        this->getOpenaiModels();
-    else if (translateProvider == "Github Models")
-        this->getGithubChatModels();
-    
-    std::string speechProvider = settings.value("tts/provider", "OpenAI").toString().toStdString();
-    if (speechProvider == "OpenAI")
-    {
-        ui->speechVoices->addItems(this->openaiSpeechVoices);
-        ui->speechModels->addItems(this->openaiSpeechModels);
-    }
-    else if (speechProvider == "ElevenLabs")
-    {
-        this->getElevenlabsSpeechModels();
-        this->getElevenlabsSpeechVoices();
-    }
 }
 
 SubtitleConfig::~SubtitleConfig()
@@ -307,4 +288,31 @@ std::map<QString, QVariant> SubtitleConfig::loadConfigForSubtitleItem(int itemId
     }
     settings.endGroup();
     return configs;
+}
+
+void SubtitleConfig::showEvent(QShowEvent* event)
+{
+    QDialog::showEvent(event);
+    if (m_initialized) return; // chỉ chạy 1 lần cho instance này
+
+    QSettings settings("haidanghth910", "srteditor");
+
+    std::string translateProvider =
+        settings.value("translate/provider", "OpenAI").toString().toStdString();
+    if (translateProvider == "OpenAI")
+        this->getOpenaiModels();
+    else if (translateProvider == "Github Models")
+        this->getGithubChatModels();
+
+    std::string speechProvider =
+        settings.value("tts/provider", "OpenAI").toString().toStdString();
+    if (speechProvider == "OpenAI") {
+        ui->speechVoices->addItems(this->openaiSpeechVoices);
+        ui->speechModels->addItems(this->openaiSpeechModels);
+    } else if (speechProvider == "ElevenLabs") {
+        this->getElevenlabsSpeechModels();
+        this->getElevenlabsSpeechVoices();
+    }
+
+    m_initialized = true;
 }
