@@ -60,6 +60,9 @@ private:
 
     void getGithubChatModels();
 
+protected:
+    void showEvent(QShowEvent *event) override;
+
 public:
     explicit SubtitleConfig(QWidget* parent = nullptr);
     ~SubtitleConfig();
