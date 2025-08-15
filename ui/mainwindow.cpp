@@ -35,6 +35,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     connect(ui->actionUpdate_end_time, &QAction::triggered, this, &MainWindow::updateEndTime);
     connect(ui->actionCurrent_subtitle, &QAction::triggered, this, &MainWindow::currentSubtitleTextToSpeech);
     connect(ui->actionView_audio_files, &QAction::triggered, this, &MainWindow::openOutputFolder);
+    connect(ui->actionSaveSubtitles, &QAction::triggered, this, &MainWindow::saveSubtitlesWithoutValidator);
 
     progressBar = new QProgressBar(this);
     progressBar->setVisible(false);
@@ -524,4 +525,44 @@ void MainWindow::openOutputFolder()
     {
         QDesktopServices::openUrl(QUrl::fromLocalFile(QString::fromStdString(this->outputSpeechDir)));
     }
+}
+
+void MainWindow::saveSubtitlesWithoutValidator()
+{
+    if (subtitles.isEmpty()) {
+        statusBar()->showMessage("No subtitles to export.");
+        return;
+    }
+
+    QString filePath = QFileDialog::getSaveFileName(
+        this,
+        "Save SRT File",
+        QDir::homePath(),
+        "SubRip Subtitle (*.srt);;All Files (*)"
+    );
+    if (filePath.isEmpty()) return;
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        statusBar()->showMessage("Cannot write file: " + filePath);
+        return;
+    }
+
+    QTextStream out(&file);
+    for (int i = 0; i < subtitles.size(); ++i) {
+        SubtitleItem* item = subtitles[i];
+        out << QString::number(i + 1) << "\n";
+        out << QString("%1:%2:%3,%4 --> %5:%6:%7,%8\n")
+            .arg(item->getStartHour(), 2, 10, QChar('0'))
+            .arg(item->getStartMinute(), 2, 10, QChar('0'))
+            .arg(item->getStartSecond(), 2, 10, QChar('0'))
+            .arg(item->getStartMillisecond(), 3, 10, QChar('0'))
+            .arg(item->getEndHour(), 2, 10, QChar('0'))
+            .arg(item->getEndMinute(), 2, 10, QChar('0'))
+            .arg(item->getEndSecond(), 2, 10, QChar('0'))
+            .arg(item->getEndMillisecond(), 3, 10, QChar('0'));
+        out << item->getContent() << "\n\n";
+    }
+    file.close();
+    statusBar()->showMessage("Saved: " + filePath);
 }
