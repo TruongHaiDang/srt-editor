@@ -113,6 +113,8 @@ private:
 
     void openOutputFolder();
 
+    void saveSubtitlesWithoutValidator();
+
 public:
     /**
      * @brief Default constructor – builds the UI and connects signals.
