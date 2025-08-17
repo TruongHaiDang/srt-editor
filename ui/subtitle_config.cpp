@@ -16,11 +16,27 @@ size_t SubtitleConfig::writeCallback(void *ptr, size_t size, size_t nmemb, void 
     return total;
 }
 
-void SubtitleConfig::getOpenaiModels()
+void SubtitleConfig::getOpenaiChatModels()
 {
     QSettings settings("haidanghth910", "srteditor");
+
+    // Check date before updating
+    const qint64 todayDay = QDate::currentDate().toJulianDay();
+    const qint64 cachedDay = settings.value("cache/getOpenaiChatModels/day", 0).toLongLong();
+    const bool needRefresh = (cachedDay != todayDay);
+    
+    // Nếu không cần refresh, load từ cache và return
+    if (!needRefresh) {
+        this->openaiChatModels = settings.value("cache/getOpenaiChatModels/data").toStringList();
+        return;
+    }
+    
+    // Cập nhật ngày cache
+    settings.setValue("cache/getOpenaiChatModels/day", todayDay);
+
     this->openaiApiKey = settings.value("translate/apiKey", "").toString().toStdString();
-    if (this->openaiApiKey.empty()) return;
+    if (this->openaiApiKey.empty())
+        return;
 
     CURL *curl = curl_easy_init();
     if (curl)
@@ -41,11 +57,9 @@ void SubtitleConfig::getOpenaiModels()
         if (res == CURLE_OK)
         {
             auto jsonRes = nlohmann::json::parse(response);
-            QString jsonStr = QString::fromStdString(jsonRes.dump(4));
             if (jsonRes.contains("data") && jsonRes["data"].is_array())
             {
                 this->openaiChatModels.clear();
-                this->openaiSpeechModels.clear();
                 for (const auto &model : jsonRes["data"])
                 {
                     if (model.contains("id"))
@@ -53,12 +67,76 @@ void SubtitleConfig::getOpenaiModels()
                         std::string mod = model["id"].get<std::string>();
                         if (mod.find("gpt") != std::string::npos)
                             this->openaiChatModels.append(QString::fromStdString(mod));
+                    }
+                };
+                // Cache dữ liệu
+                settings.setValue("cache/getOpenaiChatModels/data", this->openaiChatModels);
+                ui->translateModels->addItems(this->openaiChatModels);
+            }
+        }
+
+        curl_slist_free_all(headers);
+    }
+    curl_easy_cleanup(curl);
+}
+
+void SubtitleConfig::getOpenaiSpeechModels()
+{
+    QSettings settings("haidanghth910", "srteditor");
+
+    // Check date before updating
+    const qint64 todayDay = QDate::currentDate().toJulianDay();
+    const qint64 cachedDay = settings.value("cache/getOpenaiSpeechModels/day", 0).toLongLong();
+    const bool needRefresh = (cachedDay != todayDay);
+    
+    // Nếu không cần refresh, load từ cache và return
+    if (!needRefresh) {
+        this->openaiSpeechModels = settings.value("cache/getOpenaiSpeechModels/data").toStringList();
+        return;
+    }
+    
+    // Cập nhật ngày cache
+    settings.setValue("cache/getOpenaiSpeechModels/day", todayDay);
+
+    this->openaiApiKey = settings.value("tts/apiKey", "").toString().toStdString();
+    if (this->openaiApiKey.empty())
+        return;
+
+    CURL *curl = curl_easy_init();
+    if (curl)
+    {
+        struct curl_slist *headers = nullptr;
+        std::string authHeader = "Authorization: Bearer " + openaiApiKey;
+        headers = curl_slist_append(headers, authHeader.c_str());
+        headers = curl_slist_append(headers, "Content-Type: application/json");
+
+        std::string response;
+        curl_easy_setopt(curl, CURLOPT_URL, "https://api.openai.com/v1/models");
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, SubtitleConfig::writeCallback);
+        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+
+        CURLcode res = curl_easy_perform(curl);
+        if (res == CURLE_OK)
+        {
+            auto jsonRes = nlohmann::json::parse(response);
+            if (jsonRes.contains("data") && jsonRes["data"].is_array())
+            {
+                this->openaiSpeechModels.clear();
+                for (const auto &model : jsonRes["data"])
+                {
+                    if (model.contains("id"))
+                    {
+                        std::string mod = model["id"].get<std::string>();
                         if (mod.find("tts") != std::string::npos || mod.find("whisper") != std::string::npos)
                             this->openaiSpeechModels.append(QString::fromStdString(mod));
                     }
                 };
-
-                ui->translateModels->addItems(this->openaiChatModels);
+                // Cache dữ liệu
+                settings.setValue("cache/getOpenaiSpeechModels/data", this->openaiSpeechModels);
+                ui->speechVoices->addItems(this->openaiSpeechVoices);
+                ui->speechModels->addItems(this->openaiSpeechModels);
             }
         }
 
@@ -70,8 +148,24 @@ void SubtitleConfig::getOpenaiModels()
 void SubtitleConfig::getElevenlabsSpeechModels()
 {
     QSettings settings("haidanghth910", "srteditor");
+    
+    // Check date before updating
+    const qint64 todayDay = QDate::currentDate().toJulianDay();
+    const qint64 cachedDay = settings.value("cache/getElevenlabsSpeechModels/day", 0).toLongLong();
+    const bool needRefresh = (cachedDay != todayDay);
+    
+    // Nếu không cần refresh, load từ cache và return
+    if (!needRefresh) {
+        this->elevenlabsSpeechModels = settings.value("cache/getElevenlabsSpeechModels/data").toStringList();
+        return;
+    }
+    
+    // Cập nhật ngày cache
+    settings.setValue("cache/getElevenlabsSpeechModels/day", todayDay);
+    
     this->elevenlabsApiKey = settings.value("tts/apiKey", "").toString().toStdString();
-    if (this->elevenlabsApiKey.empty()) return;
+    if (this->elevenlabsApiKey.empty())
+        return;
 
     CURL *curl;
     CURLcode res;
@@ -109,13 +203,14 @@ void SubtitleConfig::getElevenlabsSpeechModels()
                     }
                 }
             }
-            // Nếu muốn hiển thị lên combobox:
+            // Cache dữ liệu và hiển thị lên combobox
+            settings.setValue("cache/getElevenlabsSpeechModels/data", this->elevenlabsSpeechModels);
             ui->speechModels->addItems(this->elevenlabsSpeechModels);
         }
         else
         {
-            qDebug() << "Curl failed:" << curl_easy_strerror(res);  // In ra thông điệp lỗi
-            qDebug() << "Error code:" << res;                       // In ra số lỗi, ví dụ 28
+            qDebug() << "Curl failed:" << curl_easy_strerror(res); // In ra thông điệp lỗi
+            qDebug() << "Error code:" << res;                      // In ra số lỗi, ví dụ 28
         };
         curl_slist_free_all(headers);
     }
@@ -125,8 +220,32 @@ void SubtitleConfig::getElevenlabsSpeechModels()
 void SubtitleConfig::getElevenlabsSpeechVoices()
 {
     QSettings settings("haidanghth910", "srteditor");
+    
+    // Check date before updating
+    const qint64 todayDay = QDate::currentDate().toJulianDay();
+    const qint64 cachedDay = settings.value("cache/getElevenlabsSpeechVoices/day", 0).toLongLong();
+    const bool needRefresh = (cachedDay != todayDay);
+    
+    // Nếu không cần refresh, load từ cache và return
+    if (!needRefresh) {
+        QStringList voiceNames = settings.value("cache/getElevenlabsSpeechVoices/data").toStringList();
+        // Khôi phục map voiceNameToId từ cache
+        for (const QString &name : voiceNames) {
+            QString id = settings.value(QString("cache/getElevenlabsSpeechVoices/voiceMap/%1").arg(name)).toString();
+            if (!id.isEmpty()) {
+                this->elevenlabsVoiceNameToId[name] = id;
+            }
+        }
+        this->elevenlabsSpeechVoices = voiceNames;
+        return;
+    }
+    
+    // Cập nhật ngày cache
+    settings.setValue("cache/getElevenlabsSpeechVoices/day", todayDay);
+    
     this->elevenlabsApiKey = settings.value("tts/apiKey", "").toString().toStdString();
-    if (this->elevenlabsApiKey.empty()) return;
+    if (this->elevenlabsApiKey.empty())
+        return;
 
     CURL *curl;
     CURLcode res;
@@ -166,6 +285,15 @@ void SubtitleConfig::getElevenlabsSpeechVoices()
                     }
                 }
             }
+            // Cache dữ liệu
+            settings.setValue("cache/getElevenlabsSpeechVoices/data", voiceNames);
+            // Cache map voiceNameToId
+            for (const QString &name : voiceNames) {
+                settings.setValue(QString("cache/getElevenlabsSpeechVoices/voiceMap/%1").arg(name), 
+                                this->elevenlabsVoiceNameToId.value(name));
+            }
+            this->elevenlabsSpeechVoices = voiceNames;
+            
             ui->speechVoices->clear();
             ui->speechVoices->addItems(voiceNames);
         }
@@ -182,8 +310,24 @@ void SubtitleConfig::getElevenlabsSpeechVoices()
 void SubtitleConfig::getGithubChatModels()
 {
     QSettings settings("haidanghth910", "srteditor");
+    
+    // Check date before updating
+    const qint64 todayDay = QDate::currentDate().toJulianDay();
+    const qint64 cachedDay = settings.value("cache/getGithubChatModels/day", 0).toLongLong();
+    const bool needRefresh = (cachedDay != todayDay);
+    
+    // Nếu không cần refresh, load từ cache và return
+    if (!needRefresh) {
+        this->githubChatModels = settings.value("cache/getGithubChatModels/data").toStringList();
+        return;
+    }
+    
+    // Cập nhật ngày cache
+    settings.setValue("cache/getGithubChatModels/day", todayDay);
+    
     this->githubToken = settings.value("translate/apiKey", "").toString().toStdString();
-    if (this->githubToken.empty()) return;
+    if (this->githubToken.empty())
+        return;
 
     CURL *curl;
     CURLcode res;
@@ -221,6 +365,8 @@ void SubtitleConfig::getGithubChatModels()
                     }
                 }
             }
+            // Cache dữ liệu
+            settings.setValue("cache/getGithubChatModels/data", this->githubChatModels);
             ui->translateModels->addItems(this->githubChatModels);
         }
         else
@@ -260,11 +406,11 @@ std::map<QString, QVariant> SubtitleConfig::getConfigs()
  * @param itemId: Định danh subtitle item (ví dụ: số thứ tự dòng)
  * @param configs: Map chứa các config cần lưu
  */
-void SubtitleConfig::saveConfigForSubtitleItem(int itemId, const std::map<QString, QVariant>& configs)
+void SubtitleConfig::saveConfigForSubtitleItem(int itemId, const std::map<QString, QVariant> &configs)
 {
     QSettings settings("haidanghth910", "srteditor");
     settings.beginGroup(QString("SubtitleItems/%1").arg(itemId));
-    for (const auto& pair : configs)
+    for (const auto &pair : configs)
     {
         settings.setValue(pair.first, pair.second);
     }
@@ -282,7 +428,7 @@ std::map<QString, QVariant> SubtitleConfig::loadConfigForSubtitleItem(int itemId
     std::map<QString, QVariant> configs;
     settings.beginGroup(QString("SubtitleItems/%1").arg(itemId));
     QStringList keys = settings.childKeys();
-    for (const QString& key : keys)
+    for (const QString &key : keys)
     {
         configs[key] = settings.value(key);
     }
@@ -290,28 +436,44 @@ std::map<QString, QVariant> SubtitleConfig::loadConfigForSubtitleItem(int itemId
     return configs;
 }
 
-void SubtitleConfig::showEvent(QShowEvent* event)
+void SubtitleConfig::showEvent(QShowEvent *event)
 {
     QDialog::showEvent(event);
-    if (m_initialized) return; // chỉ chạy 1 lần cho instance này
-
+    if (m_initialized)
+        return; // chỉ chạy 1 lần cho instance này
     QSettings settings("haidanghth910", "srteditor");
 
+    // (tuỳ bạn) có thể xoá/invalid các key cache chi tiết ở đây nếu cần
     std::string translateProvider =
         settings.value("translate/provider", "OpenAI").toString().toStdString();
     if (translateProvider == "OpenAI")
-        this->getOpenaiModels();
+        this->getOpenaiChatModels();
     else if (translateProvider == "Github Models")
         this->getGithubChatModels();
 
     std::string speechProvider =
         settings.value("tts/provider", "OpenAI").toString().toStdString();
-    if (speechProvider == "OpenAI") {
+    if (speechProvider == "OpenAI")
+    {
+        this->getOpenaiSpeechModels();
+        // Load dữ liệu từ cache lên UI
         ui->speechVoices->addItems(this->openaiSpeechVoices);
         ui->speechModels->addItems(this->openaiSpeechModels);
-    } else if (speechProvider == "ElevenLabs") {
+    }
+    else if (speechProvider == "ElevenLabs")
+    {
         this->getElevenlabsSpeechModels();
         this->getElevenlabsSpeechVoices();
+        // Load dữ liệu từ cache lên UI
+        ui->speechModels->addItems(this->elevenlabsSpeechModels);
+        ui->speechVoices->addItems(this->elevenlabsSpeechVoices);
+    }
+    
+    // Load dữ liệu translate models lên UI
+    if (translateProvider == "OpenAI") {
+        ui->translateModels->addItems(this->openaiChatModels);
+    } else if (translateProvider == "Github Models") {
+        ui->translateModels->addItems(this->githubChatModels);
     }
 
     m_initialized = true;
