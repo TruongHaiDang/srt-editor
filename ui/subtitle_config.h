@@ -18,6 +18,10 @@
 #include <QMap>
 #include <QVariant>
 #include <map>
+#include <QDate>
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QJsonObject>
 
 namespace Ui {
     class SubtitleConfig;
@@ -54,7 +58,8 @@ private:
 
     static size_t writeCallback(void *ptr, size_t size, size_t nmemb, void *userData);
 
-    void getOpenaiModels();
+    void getOpenaiChatModels();
+    void getOpenaiSpeechModels();
 
     void getElevenlabsSpeechModels();
     void getElevenlabsSpeechVoices();
