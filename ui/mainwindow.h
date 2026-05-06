@@ -1,0 +1,77 @@
+#pragma once
+
+#include <QtCore/QVector>
+#include <QtCore/QString>
+#include <QtGui/QAction>
+#include <QtWidgets/QApplication>
+#include <QtWidgets/QFrame>
+#include <QtWidgets/QHBoxLayout>
+#include <QtWidgets/QHeaderView>
+#include <QtWidgets/QLabel>
+#include <QtWidgets/QLineEdit>
+#include <QtWidgets/QMainWindow>
+#include <QtWidgets/QMenuBar>
+#include <QtWidgets/QPushButton>
+#include <QtWidgets/QSizePolicy>
+#include <QtWidgets/QSplitter>
+#include <QtWidgets/QStatusBar>
+#include <QtWidgets/QTableWidget>
+#include <QtWidgets/QTableWidgetItem>
+#include <QtWidgets/QTextEdit>
+#include <QtWidgets/QToolButton>
+#include <QtWidgets/QVBoxLayout>
+
+class QAction;
+class QLabel;
+class QLineEdit;
+class QTextEdit;
+
+class MainWindow final : public QMainWindow
+{
+    Q_OBJECT
+
+public:
+    explicit MainWindow(QWidget* parent = nullptr);
+    ~MainWindow() override = default;
+
+private slots:
+    void handleSelectedRowChanged();
+
+private:
+    struct SubtitleRow
+    {
+        int index;
+        QString startTime;
+        QString endTime;
+        QString duration;
+        QString text;
+    };
+
+    void buildUi();
+    void buildTopBar();
+    void buildSubtitleTable();
+    void buildLinePropertiesPanel();
+    void buildStatusBar();
+
+    QWidget* createToolbarButton(const QString& text, const QString& tooltip);
+    QLabel* createPanelLabel(const QString& text);
+    QLineEdit* createTimeEditor(const QString& text, bool readOnly = false);
+
+    void loadSampleData();
+    void applyStyle();
+    void updateLinePropertiesFromRow(int row);
+
+private:
+    QWidget* centralContainer_ = nullptr;
+    QTableWidget* subtitleTable_ = nullptr;
+
+    QLineEdit* startTimeEdit_ = nullptr;
+    QLineEdit* endTimeEdit_ = nullptr;
+    QLineEdit* durationEdit_ = nullptr;
+    QTextEdit* subtitleTextEdit_ = nullptr;
+
+    QLabel* statusLeftLabel_ = nullptr;
+    QLabel* statusRightLabel_ = nullptr;
+
+    QVector<SubtitleRow> rows_;
+};

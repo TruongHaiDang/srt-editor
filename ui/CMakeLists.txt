@@ -1,0 +1,17 @@
+file(GLOB UI_FILES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.ui"
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.qrc"
+)
+
+target_sources(${CMAKE_PROJECT_NAME}
+    PRIVATE
+        ${UI_FILES}
+)
+
+target_include_directories(${CMAKE_PROJECT_NAME}
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
