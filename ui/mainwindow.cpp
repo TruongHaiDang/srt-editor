@@ -1,4 +1,11 @@
 #include "mainwindow.h"
+#include <qaction.h>
+#include <qdebug.h>
+#include <qfiledialog.h>
+#include <qmainwindow.h>
+#include <qobject.h>
+#include <qpicture.h>
+#include <qstringconverter_base.h>
 
 namespace
 {
@@ -12,26 +19,13 @@ constexpr int kColumnStartTime = 1;
 constexpr int kColumnEndTime = 2;
 constexpr int kColumnSubtitleText = 3;
 
-const char* kAppTitle = "SubtitleEdit Pro";
-const char* kSelectedRowColor = "#d3e3ff";
-const char* kBorderColor = "#c0c0c0";
-const char* kFrameBackground = "#f0f0f0";
-const char* kWorkspaceBackground = "#ffffff";
-const char* kHeaderBackground = "#e5e5e5";
-const char* kTextColor = "#1a1c1c";
-const char* kSecondaryTextColor = "#404752";
-const char* kPrimaryColor = "#0078d4";
+const char* kAppTitle = "SubtitleEdit Free";
 }
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
 {
-    rows_ = {
-        {1, "00:00:05,000", "00:00:08,500", "00:00:03,500", "Hello, world! Welcome to SubtitleEdit Pro."},
-        {2, "00:00:09,100", "00:00:12,000", "00:00:02,900", "This is a highly professional, native-feeling application."},
-        {3, "00:00:12,500", "00:00:15,800", "00:00:03,300", "It leverages Qt6 inspired design principles."},
-        {4, "00:00:16,000", "00:00:20,000", "00:00:04,000", "Information density and clear affordances are prioritized."}
-    };
+    rows_ = {};
 
     buildUi();
     loadSampleData();
@@ -93,13 +87,27 @@ void MainWindow::buildTopBar()
     title->setObjectName("appTitle");
     layout->addWidget(title);
 
-    QStringList menus = {"File", "Edit", "Tools", "Help"};
-    for (const QString& menuText : menus) {
-        auto* button = new QPushButton(menuText, topBar);
-        button->setObjectName("menuButton");
-        button->setFlat(true);
-        layout->addWidget(button);
-    }
+    auto* menuBar = new QMenuBar(topBar);
+    menuBar->setObjectName("topMenuBar");
+
+    auto* fileMenu = menuBar->addMenu("File");
+    auto *newAction = fileMenu->addAction("New");
+    connect(newAction, &QAction::triggered, this, &MainWindow::onNewSrtFile);
+    auto* openFileAction = fileMenu->addAction("Open");
+    connect(openFileAction, &QAction::triggered, this, &MainWindow::onOpenSrtFile);
+    auto* saveFileAction = fileMenu->addAction("Save");
+    connect(saveFileAction, &QAction::triggered, this, &MainWindow::onSaveSrtFile);
+    auto* saveAsFileAction = fileMenu->addAction("Save as...");
+    connect(saveAsFileAction, &QAction::triggered, this, &MainWindow::onSaveAsSrtFile);
+    fileMenu->addSeparator();
+    auto* closeAction = fileMenu->addAction("Close");
+    connect(closeAction, &QAction::triggered, this, [this](){this->close();});
+
+    menuBar->addMenu("Edit");
+    menuBar->addMenu("Tools");
+    menuBar->addMenu("Help");
+
+    layout->addWidget(menuBar);
 
     layout->addStretch();
 
@@ -185,17 +193,17 @@ void MainWindow::buildLinePropertiesPanel()
     formLayout->setSpacing(6);
 
     formLayout->addWidget(createPanelLabel("Start Time"));
-    startTimeEdit_ = createTimeEditor("00:00:12,500");
+    startTimeEdit_ = createTimeEditor("");
     formLayout->addWidget(startTimeEdit_);
 
     formLayout->addSpacing(8);
     formLayout->addWidget(createPanelLabel("End Time"));
-    endTimeEdit_ = createTimeEditor("00:00:15,800");
+    endTimeEdit_ = createTimeEditor("");
     formLayout->addWidget(endTimeEdit_);
 
     formLayout->addSpacing(8);
     formLayout->addWidget(createPanelLabel("Duration"));
-    durationEdit_ = createTimeEditor("00:00:03,300", true);
+    durationEdit_ = createTimeEditor("", true);
     formLayout->addWidget(durationEdit_);
 
     formLayout->addSpacing(16);
@@ -204,7 +212,6 @@ void MainWindow::buildLinePropertiesPanel()
     subtitleTextEdit_ = new QTextEdit(content);
     subtitleTextEdit_->setObjectName("subtitleTextEdit");
     subtitleTextEdit_->setFixedHeight(138);
-    subtitleTextEdit_->setPlainText("It leverages Qt6 inspired design principles.");
     formLayout->addWidget(subtitleTextEdit_);
 
     formLayout->addStretch();
@@ -244,6 +251,7 @@ void MainWindow::buildStatusBar()
 
 void MainWindow::loadSampleData()
 {
+    subtitleTable_->clearContents();
     subtitleTable_->setRowCount(rows_.size());
 
     for (int row = 0; row < rows_.size(); ++row) {
@@ -286,141 +294,147 @@ void MainWindow::handleSelectedRowChanged()
 
 void MainWindow::applyStyle()
 {
-    qApp->setStyleSheet(QString(R"(
-        QMainWindow {
-            background: %1;
-            color: %2;
-            font-family: Inter, Arial, sans-serif;
-            font-size: 13px;
+    QFile file(":/css/mainwindow.qss");
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return;
+    }
+
+    QTextStream stream(&file);
+    qApp->setStyleSheet(stream.readAll());
+}
+
+QString MainWindow::calculateDuration(const QString& startTime, const QString& endTime)
+{
+    const QTime start = QTime::fromString(startTime, "HH:mm:ss,zzz");
+    const QTime end = QTime::fromString(endTime, "HH:mm:ss,zzz");
+
+    if (!start.isValid() || !end.isValid()) {
+        return "00:00:00,000";
+    }
+
+    int durationMs = start.msecsTo(end);
+
+    if (durationMs < 0) {
+        durationMs += 24 * 60 * 60 * 1000;
+    }
+
+    const int hours = durationMs / 3600000;
+    durationMs %= 3600000;
+
+    const int minutes = durationMs / 60000;
+    durationMs %= 60000;
+
+    const int seconds = durationMs / 1000;
+    const int milliseconds = durationMs % 1000;
+
+    return QString("%1:%2:%3,%4")
+        .arg(hours, 2, 10, QChar('0'))
+        .arg(minutes, 2, 10, QChar('0'))
+        .arg(seconds, 2, 10, QChar('0'))
+        .arg(milliseconds, 3, 10, QChar('0'));
+}
+
+void MainWindow::onNewSrtFile()
+{
+    this->_currentSrtFilePath.clear();
+    this->rows_.clear();
+    this->subtitleTable_->clear();
+    this->startTimeEdit_->clear();
+    this->endTimeEdit_->clear();
+    this->durationEdit_->clear();
+    this->subtitleTextEdit_->clear();
+}
+
+void MainWindow::onOpenSrtFile()
+{
+    const QString filePath = QFileDialog::getOpenFileName(
+        this,
+        "Open Subtitle File",
+        QString(),
+        "Subtitle Files (*.srt *.vtt *.txt);;All Files (*)"
+    );
+
+    if (filePath.isEmpty()) {
+        return;
+    }
+
+    QFile file(filePath);
+
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return;
+    }
+
+    QTextStream stream(&file);
+    stream.setEncoding(QStringConverter::Utf8);
+
+    this->_currentSrtFilePath = filePath;
+
+    this->rows_.clear();
+
+    while (!stream.atEnd()) {
+
+        // Index
+        QString indexLine = stream.readLine().trimmed();
+
+        if (indexLine.isEmpty()) {
+            continue;
         }
 
-        QWidget#topBar {
-            background: %1;
-            border-bottom: 1px solid %3;
+        // Time
+        QString timeLine = stream.readLine().trimmed();
+
+        QStringList timeParts = timeLine.split(" --> ");
+
+        if (timeParts.size() != 2) {
+            continue;
         }
 
-        QLabel#appTitle {
-            font-size: 12px;
-            font-weight: 700;
-            color: #202020;
-            padding-left: 8px;
-            padding-right: 8px;
+        QString startTime = timeParts.at(0).trimmed();
+        QString endTime = timeParts.at(1).trimmed();
+
+        // Subtitle text
+        QString subtitleText;
+
+        while (!stream.atEnd()) {
+
+            QString line = stream.readLine();
+
+            if (line.trimmed().isEmpty()) {
+                break;
+            }
+
+            if (!subtitleText.isEmpty()) {
+                subtitleText += "\n";
+            }
+
+            subtitleText += line;
         }
 
-        QPushButton#menuButton {
-            border: none;
-            background: transparent;
-            color: #303030;
-            padding: 4px 8px;
-            font-size: 12px;
-        }
+        SubtitleRow row;
 
-        QPushButton#menuButton:hover,
-        QToolButton#toolbarButton:hover {
-            background: #e5e5e5;
-        }
+        row.index = indexLine.toInt();
+        row.startTime = startTime;
+        row.endTime = endTime;
+        row.duration = calculateDuration(startTime, endTime);
+        row.text = subtitleText;
 
-        QToolButton#toolbarButton {
-            border: none;
-            background: transparent;
-            color: #303030;
-            font-size: 15px;
-        }
+        this->rows_.append(row);
+    }
 
-        QTableWidget#subtitleTable {
-            background: %4;
-            alternate-background-color: #f9f9f9;
-            gridline-color: #eeeeee;
-            border: none;
-            color: %2;
-            font-size: 13px;
-            selection-background-color: %5;
-            selection-color: #001c39;
-        }
+    loadSampleData();
 
-        QTableWidget#subtitleTable::item {
-            padding-left: 8px;
-            border-right: 1px solid #eeeeee;
-        }
+    if (!this->rows_.isEmpty()) {
+        subtitleTable_->selectRow(0);
+        updateLinePropertiesFromRow(0);
+    }
+}
 
-        QHeaderView::section {
-            background: %1;
-            color: %6;
-            border: none;
-            border-right: 1px solid %3;
-            border-bottom: 1px solid %3;
-            padding: 5px 8px;
-            font-size: 12px;
-            font-weight: 600;
-        }
+void MainWindow::onSaveSrtFile()
+{
 
-        QWidget#propertiesPanel {
-            background: %1;
-            border-left: 1px solid %3;
-        }
+}
 
-        QWidget#propertiesHeader {
-            background: %7;
-            border-bottom: 1px solid %3;
-        }
+void MainWindow::onSaveAsSrtFile()
+{
 
-        QLabel#panelTitle {
-            color: %6;
-            font-size: 12px;
-            font-weight: 700;
-            letter-spacing: 1px;
-        }
-
-        QLabel#pinIcon {
-            color: #202020;
-            font-size: 13px;
-        }
-
-        QLabel#formLabel {
-            color: %6;
-            font-size: 12px;
-        }
-
-        QLineEdit#timeEditor,
-        QTextEdit#subtitleTextEdit {
-            background: #ffffff;
-            border: 1px solid %3;
-            color: %2;
-            padding: 6px 8px;
-            font-size: 13px;
-        }
-
-        QLineEdit#timeEditor:focus,
-        QTextEdit#subtitleTextEdit:focus {
-            border: 1px solid %8;
-        }
-
-        QLineEdit#readonlyTimeEditor {
-            background: #e8e8e8;
-            border: 1px solid %3;
-            color: #b8b8b8;
-            padding: 6px 8px;
-            font-size: 13px;
-        }
-
-        QStatusBar#statusBar {
-            background: %1;
-            border-top: 1px solid %3;
-            color: #5f6670;
-            font-size: 11px;
-            text-transform: uppercase;
-        }
-
-        QStatusBar::item {
-            border: none;
-        }
-    )")
-    .arg(kFrameBackground)
-    .arg(kTextColor)
-    .arg(kBorderColor)
-    .arg(kWorkspaceBackground)
-    .arg(kSelectedRowColor)
-    .arg(kSecondaryTextColor)
-    .arg(kHeaderBackground)
-    .arg(kPrimaryColor));
 }

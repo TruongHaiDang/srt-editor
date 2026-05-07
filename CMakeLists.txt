@@ -20,7 +20,7 @@ find_package(Qt6 REQUIRED COMPONENTS
     Widgets
 )
 
-qt_add_executable(${CMAKE_PROJECT_NAME})
+qt_add_executable(${CMAKE_PROJECT_NAME} resources.qrc)
 
 target_link_libraries(${CMAKE_PROJECT_NAME}
     PRIVATE

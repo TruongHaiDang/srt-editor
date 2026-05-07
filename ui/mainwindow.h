@@ -20,6 +20,13 @@
 #include <QtWidgets/QTextEdit>
 #include <QtWidgets/QToolButton>
 #include <QtWidgets/QVBoxLayout>
+#include <QFile>
+#include <QtWidgets/QMenu>
+#include <qobject.h>
+#include <QFileDialog>
+#include <QMessageBox>
+#include <QTextStream>
+#include <QTime>
 
 class QAction;
 class QLabel;
@@ -56,10 +63,16 @@ private:
     QWidget* createToolbarButton(const QString& text, const QString& tooltip);
     QLabel* createPanelLabel(const QString& text);
     QLineEdit* createTimeEditor(const QString& text, bool readOnly = false);
+    QString calculateDuration(const QString& startTime, const QString& endTime);
 
     void loadSampleData();
     void applyStyle();
     void updateLinePropertiesFromRow(int row);
+
+    void onNewSrtFile();
+    void onOpenSrtFile();
+    void onSaveSrtFile();
+    void onSaveAsSrtFile();
 
 private:
     QWidget* centralContainer_ = nullptr;
@@ -74,4 +87,5 @@ private:
     QLabel* statusRightLabel_ = nullptr;
 
     QVector<SubtitleRow> rows_;
+    QString _currentSrtFilePath;
 };
