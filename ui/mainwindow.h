@@ -60,7 +60,7 @@ private:
     void buildLinePropertiesPanel();
     void buildStatusBar();
 
-    QWidget* createToolbarButton(const QString& text, const QString& tooltip);
+    QToolButton* createToolbarButton(const QString& text, const QString& tooltip);
     QLabel* createPanelLabel(const QString& text);
     QLineEdit* createTimeEditor(const QString& text, bool readOnly = false);
     QString calculateDuration(const QString& startTime, const QString& endTime);
@@ -68,6 +68,7 @@ private:
     void loadSampleData();
     void applyStyle();
     void updateLinePropertiesFromRow(int row);
+    void updateCurrentRowFromLineProperties();
 
     void onNewSrtFile();
     void onOpenSrtFile();

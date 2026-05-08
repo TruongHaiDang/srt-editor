@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include <qaction.h>
 #include <qdebug.h>
+#include <qfiledevice.h>
 #include <qfiledialog.h>
 #include <qmainwindow.h>
 #include <qobject.h>
@@ -111,8 +112,12 @@ void MainWindow::buildTopBar()
 
     layout->addStretch();
 
-    layout->addWidget(createToolbarButton("↗", "Open"));
-    layout->addWidget(createToolbarButton("▣", "Save"));
+    auto* openButton = createToolbarButton("↗", "Open");
+    connect(openButton, &QToolButton::clicked, this, &MainWindow::onOpenSrtFile);
+    layout->addWidget(openButton);
+    auto* saveButton = createToolbarButton("▣", "Save");
+    connect(saveButton, &QToolButton::clicked, this, &MainWindow::onSaveSrtFile);
+    layout->addWidget(saveButton);
     layout->addWidget(createToolbarButton("↶", "Undo"));
     layout->addWidget(createToolbarButton("↷", "Redo"));
     layout->addWidget(createToolbarButton("⊞", "Add line"));
@@ -121,7 +126,7 @@ void MainWindow::buildTopBar()
     qobject_cast<QVBoxLayout*>(centralContainer_->layout())->insertWidget(0, topBar);
 }
 
-QWidget* MainWindow::createToolbarButton(const QString& text, const QString& tooltip)
+QToolButton* MainWindow::createToolbarButton(const QString& text, const QString& tooltip)
 {
     auto* button = new QToolButton(this);
     button->setObjectName("toolbarButton");
@@ -216,6 +221,10 @@ void MainWindow::buildLinePropertiesPanel()
 
     formLayout->addStretch();
     rootLayout->addWidget(content, 1);
+
+    connect(startTimeEdit_, &QLineEdit::editingFinished, this, &MainWindow::updateCurrentRowFromLineProperties);
+    connect(endTimeEdit_, &QLineEdit::editingFinished, this, &MainWindow::updateCurrentRowFromLineProperties);
+    connect(subtitleTextEdit_, &QTextEdit::textChanged, this, &MainWindow::updateCurrentRowFromLineProperties);
 }
 
 QLabel* MainWindow::createPanelLabel(const QString& text)
@@ -427,14 +436,114 @@ void MainWindow::onOpenSrtFile()
         subtitleTable_->selectRow(0);
         updateLinePropertiesFromRow(0);
     }
+    this->statusLeftLabel_->setText(QString("Opened file %1").arg(filePath));
 }
 
 void MainWindow::onSaveSrtFile()
 {
+    QString filePath = this->_currentSrtFilePath;
 
+    if (filePath.isEmpty()) {
+
+        filePath = QFileDialog::getSaveFileName(
+            this,
+            "Save Subtitle File",
+            QString(),
+            "SRT Files (*.srt);;All Files (*)"
+        );
+
+        if (filePath.isEmpty()) {
+            return;
+        }
+    }
+
+    QFile file(filePath);
+
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        return;
+    }
+
+    QTextStream stream(&file);
+    stream.setEncoding(QStringConverter::Utf8);
+
+    for (const SubtitleRow& row : this->rows_) {
+
+        stream << row.index << "\n";
+
+        stream << row.startTime
+               << " --> "
+               << row.endTime
+               << "\n";
+
+        stream << row.text << "\n\n";
+    }
+
+    file.close();
+
+    this->_currentSrtFilePath = filePath;
+    this->statusLeftLabel_->setText(QString("File is saved at %1").arg(filePath));
 }
 
 void MainWindow::onSaveAsSrtFile()
 {
+    const QString filePath = QFileDialog::getSaveFileName(
+        this,
+        "Save Subtitle File As",
+        this->_currentSrtFilePath,
+        "SRT Files (*.srt);;All Files (*)"
+    );
 
+    if (filePath.isEmpty()) {
+        return;
+    }
+
+    QFile file(filePath);
+
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        return;
+    }
+
+    QTextStream stream(&file);
+    stream.setEncoding(QStringConverter::Utf8);
+
+    for (const SubtitleRow& row : this->rows_) {
+
+        stream << row.index << "\n";
+
+        stream << row.startTime
+               << " --> "
+               << row.endTime
+               << "\n";
+
+        stream << row.text << "\n\n";
+    }
+
+    file.close();
+
+    this->_currentSrtFilePath = filePath;
+    this->statusLeftLabel_->setText(QString("New file is saved at %1").arg(filePath));
+}
+
+void MainWindow::updateCurrentRowFromLineProperties()
+{
+    const int rowIndex = subtitleTable_->currentRow();
+
+    if (rowIndex < 0 || rowIndex >= rows_.size()) {
+        return;
+    }
+
+    SubtitleRow& row = rows_[rowIndex];
+
+    row.startTime = startTimeEdit_->text().trimmed();
+    row.endTime = endTimeEdit_->text().trimmed();
+    row.duration = calculateDuration(row.startTime, row.endTime);
+    row.text = subtitleTextEdit_->toPlainText();
+
+    if (subtitleTable_->item(rowIndex, kColumnStartTime)) {
+        subtitleTable_->item(rowIndex, kColumnStartTime)->setText(row.startTime);
+    }
+    subtitleTable_->item(rowIndex, kColumnEndTime)->setText(row.endTime);
+    subtitleTable_->item(rowIndex, kColumnSubtitleText)->setText(row.text);
+
+    durationEdit_->setText(row.duration);
 }

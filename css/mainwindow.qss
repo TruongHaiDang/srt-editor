@@ -158,9 +158,13 @@ QLineEdit#readonlyTimeEditor {
 QStatusBar#statusBar {
     background: #f0f0f0;
     border-top: 1px solid #c0c0c0;
-    color: #5f6670;
+    color: #000000;
     font-size: 11px;
     text-transform: uppercase;
+}
+
+QStatusBar#statusBar QLabel {
+    color: #000000;
 }
 
 QStatusBar::item {
