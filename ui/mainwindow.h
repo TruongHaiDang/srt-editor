@@ -69,6 +69,8 @@ private:
     void applyStyle();
     void updateLinePropertiesFromRow(int row);
     void updateCurrentRowFromLineProperties();
+    void saveUndoState();
+    void restoreRows(const QVector<SubtitleRow>& rows);
 
     void onNewSrtFile();
     void onOpenSrtFile();
@@ -94,4 +96,6 @@ private:
 
     QVector<SubtitleRow> rows_;
     QString _currentSrtFilePath;
+    QVector<QVector<SubtitleRow>> undoStack_;
+    QVector<QVector<SubtitleRow>> redoStack_;
 };

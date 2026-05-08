@@ -127,10 +127,18 @@ void MainWindow::buildTopBar()
     auto* saveButton = createToolbarButton("▣", "Save");
     connect(saveButton, &QToolButton::clicked, this, &MainWindow::onSaveSrtFile);
     layout->addWidget(saveButton);
-    layout->addWidget(createToolbarButton("↶", "Undo"));
-    layout->addWidget(createToolbarButton("↷", "Redo"));
-    layout->addWidget(createToolbarButton("⊞", "Add line"));
-    layout->addWidget(createToolbarButton("🗑", "Delete line"));
+    auto* undoButton = createToolbarButton("↶", "Undo");
+    connect(undoButton, &QToolButton::clicked, this, &MainWindow::undo);
+    layout->addWidget(undoButton);
+    auto* redoButton = createToolbarButton("↷", "Redo");
+    connect(redoButton, &QToolButton::clicked, this, &MainWindow::redo);
+    layout->addWidget(redoButton);
+    auto* addLineButton = createToolbarButton("⊞", "Add line");
+    connect(addLineButton, &QToolButton::clicked, this, &MainWindow::addLine);
+    layout->addWidget(addLineButton);
+    auto* delButton = createToolbarButton("🗑", "Delete line");
+    connect(delButton, &QToolButton::clicked, this, &MainWindow::delLine);
+    layout->addWidget(delButton);
 
     qobject_cast<QVBoxLayout*>(centralContainer_->layout())->insertWidget(0, topBar);
 }
@@ -260,8 +268,8 @@ void MainWindow::buildStatusBar()
     bar->setFixedHeight(kStatusBarHeight);
     bar->setSizeGripEnabled(false);
 
-    statusLeftLabel_ = new QLabel("v1.2.4 | UTF-8 | LINE: 124, COL: 12", bar);
-    statusRightLabel_ = new QLabel("DOCUMENTATION    REPORT BUG", bar);
+    statusLeftLabel_ = new QLabel("Ready!", bar);
+    statusRightLabel_ = new QLabel("truonghaidang.com", bar);
 
     bar->addWidget(statusLeftLabel_, 1);
     bar->addPermanentWidget(statusRightLabel_);
@@ -559,6 +567,7 @@ void MainWindow::updateCurrentRowFromLineProperties()
 
 void MainWindow::addLine()
 {
+    saveUndoState();
     SubtitleRow row;
 
     row.index = this->rows_.size() + 1;
@@ -586,6 +595,8 @@ void MainWindow::delLine()
     if (this->rows_.isEmpty()) {
         return;
     }
+
+    saveUndoState();
 
     int rowIndex = subtitleTable_->currentRow();
 
@@ -623,13 +634,54 @@ void MainWindow::delLine()
     updateLinePropertiesFromRow(rowIndex);
 }
 
+void MainWindow::saveUndoState()
+{
+    undoStack_.append(this->rows_);
+    redoStack_.clear();
+}
+
+void MainWindow::restoreRows(const QVector<SubtitleRow>& rows)
+{
+    this->rows_ = rows;
+
+    this->renderSubtitleTable();
+
+    if (this->rows_.isEmpty()) {
+        this->startTimeEdit_->clear();
+        this->endTimeEdit_->clear();
+        this->durationEdit_->clear();
+        this->subtitleTextEdit_->clear();
+        return;
+    }
+
+    this->subtitleTable_->selectRow(0);
+    this->updateLinePropertiesFromRow(0);
+}
+
 void MainWindow::undo()
 {
+    if (undoStack_.isEmpty()) {
+        return;
+    }
 
+    redoStack_.append(this->rows_);
+
+    const QVector<SubtitleRow> previousState = undoStack_.takeLast();
+    restoreRows(previousState);
+
+    this->statusLeftLabel_->setText("Undo");
 }
 
 void MainWindow::redo()
 {
+    if (redoStack_.isEmpty()) {
+        return;
+    }
 
+    undoStack_.append(this->rows_);
+
+    const QVector<SubtitleRow> nextState = redoStack_.takeLast();
+    restoreRows(nextState);
+
+    this->statusLeftLabel_->setText("Redo");
 }
-
