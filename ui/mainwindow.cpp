@@ -1,4 +1,5 @@
 #include "mainwindow.h"
+#include "aboutwindow.h"
 #include <qaction.h>
 #include <qdebug.h>
 #include <qfiledevice.h>
@@ -115,7 +116,12 @@ void MainWindow::buildTopBar()
     connect(redoAction, &QAction::triggered, this, &MainWindow::redo);
 
     menuBar->addMenu("Tools");
-    menuBar->addMenu("Help");
+    auto* helpMenu = menuBar->addMenu("Help");
+    auto* aboutAction = helpMenu->addAction("About");
+    connect(aboutAction, &QAction::triggered, this, [this](){
+        AboutWindow _aboutWindow(this);
+        _aboutWindow.exec();
+    });
 
     layout->addWidget(menuBar);
 
@@ -326,7 +332,7 @@ void MainWindow::applyStyle()
     }
 
     QTextStream stream(&file);
-    qApp->setStyleSheet(stream.readAll());
+    this->setStyleSheet(stream.readAll());
 }
 
 QString MainWindow::calculateDuration(const QString& startTime, const QString& endTime)

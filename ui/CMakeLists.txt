@@ -11,6 +11,12 @@ target_sources(${CMAKE_PROJECT_NAME}
         ${UI_FILES}
 )
 
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/configure.h.in
+    ${CMAKE_CURRENT_SOURCE_DIR}/configure.h
+    @ONLY
+)
+
 target_include_directories(${CMAKE_PROJECT_NAME}
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}

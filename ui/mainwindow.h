@@ -28,6 +28,8 @@
 #include <QTextStream>
 #include <QTime>
 
+#include "aboutwindow.h"
+
 class QAction;
 class QLabel;
 class QLineEdit;

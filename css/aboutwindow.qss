@@ -1,0 +1,48 @@
+QDialog#aboutWindow {
+    background: #f0f0f0;
+    color: #202124;
+}
+
+QLabel#aboutTitleLabel {
+    color: #202124;
+    font-size: 20px;
+    font-weight: 700;
+}
+
+QLabel#aboutVersionLabel,
+QLabel#aboutBuildLabel,
+QLabel#aboutDescriptionLabel {
+    color: #202124;
+    font-size: 13px;
+}
+
+QPushButton#aboutCloseButton {
+    min-width: 80px;
+    height: 28px;
+    padding: 0 14px;
+    color: #202124;
+    background: #e8e8e8;
+    border: 1px solid #9a9a9a;
+    border-radius: 3px;
+}
+
+QPushButton#aboutCloseButton:hover {
+    background: #f5f5f5;
+}
+
+QPushButton#aboutCloseButton:pressed {
+    background: #d8d8d8;
+}
+
+QLabel#aboutAuthorLabel,
+QLabel#aboutEmailLabel,
+QLabel#aboutWebsiteLabel {
+    color: #404040;
+    font-size: 12px;
+}
+
+QLabel#aboutWebsiteLabel {
+    color: #1565c0;
+    font-size: 12px;
+    font-weight: 600;
+}
