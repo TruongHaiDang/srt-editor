@@ -65,7 +65,7 @@ private:
     QLineEdit* createTimeEditor(const QString& text, bool readOnly = false);
     QString calculateDuration(const QString& startTime, const QString& endTime);
 
-    void loadSampleData();
+    void renderSubtitleTable();
     void applyStyle();
     void updateLinePropertiesFromRow(int row);
     void updateCurrentRowFromLineProperties();
@@ -74,6 +74,11 @@ private:
     void onOpenSrtFile();
     void onSaveSrtFile();
     void onSaveAsSrtFile();
+
+    void addLine();
+    void delLine();
+    void undo();
+    void redo();
 
 private:
     QWidget* centralContainer_ = nullptr;

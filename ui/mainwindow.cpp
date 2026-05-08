@@ -29,7 +29,7 @@ MainWindow::MainWindow(QWidget* parent)
     rows_ = {};
 
     buildUi();
-    loadSampleData();
+    renderSubtitleTable();
     applyStyle();
 
     subtitleTable_->selectRow(2);
@@ -104,7 +104,16 @@ void MainWindow::buildTopBar()
     auto* closeAction = fileMenu->addAction("Close");
     connect(closeAction, &QAction::triggered, this, [this](){this->close();});
 
-    menuBar->addMenu("Edit");
+    auto* editMenu = menuBar->addMenu("Edit");
+    auto *addLineAction = editMenu->addAction("Add line");
+    connect(addLineAction, &QAction::triggered, this, &MainWindow::addLine);
+    auto *delLineAction = editMenu->addAction("Delete line");
+    connect(delLineAction, &QAction::triggered, this, &MainWindow::delLine);
+    auto *undoAction = editMenu->addAction("Undo");
+    connect(undoAction, &QAction::triggered, this, &MainWindow::undo);
+    auto *redoAction = editMenu->addAction("Redo");
+    connect(redoAction, &QAction::triggered, this, &MainWindow::redo);
+
     menuBar->addMenu("Tools");
     menuBar->addMenu("Help");
 
@@ -258,7 +267,7 @@ void MainWindow::buildStatusBar()
     bar->addPermanentWidget(statusRightLabel_);
 }
 
-void MainWindow::loadSampleData()
+void MainWindow::renderSubtitleTable()
 {
     subtitleTable_->clearContents();
     subtitleTable_->setRowCount(rows_.size());
@@ -430,7 +439,7 @@ void MainWindow::onOpenSrtFile()
         this->rows_.append(row);
     }
 
-    loadSampleData();
+    renderSubtitleTable();
 
     if (!this->rows_.isEmpty()) {
         subtitleTable_->selectRow(0);
@@ -547,3 +556,80 @@ void MainWindow::updateCurrentRowFromLineProperties()
 
     durationEdit_->setText(row.duration);
 }
+
+void MainWindow::addLine()
+{
+    SubtitleRow row;
+
+    row.index = this->rows_.size() + 1;
+    row.startTime = "00:00:00,000";
+    row.endTime = "00:00:00,000";
+    row.duration = calculateDuration(row.startTime, row.endTime);
+    row.text = "";
+
+    this->rows_.append(row);
+
+    this->renderSubtitleTable();
+
+    const int newRowIndex = this->rows_.size() - 1;
+
+    this->subtitleTable_->selectRow(newRowIndex);
+    this->updateLinePropertiesFromRow(newRowIndex);
+
+    this->statusLeftLabel_->setText(
+        QString("Added line %1").arg(row.index)
+    );
+}
+
+void MainWindow::delLine()
+{
+    if (this->rows_.isEmpty()) {
+        return;
+    }
+
+    int rowIndex = subtitleTable_->currentRow();
+
+    // Không có dòng nào được chọn
+    if (rowIndex < 0 || rowIndex >= this->rows_.size()) {
+        rowIndex = this->rows_.size() - 1;
+    }
+
+    this->rows_.removeAt(rowIndex);
+
+    // Re-index lại subtitle
+    for (int i = 0; i < this->rows_.size(); ++i) {
+        this->rows_[i].index = i + 1;
+    }
+
+    renderSubtitleTable();
+
+    // Không còn dòng nào
+    if (this->rows_.isEmpty()) {
+
+        startTimeEdit_->clear();
+        endTimeEdit_->clear();
+        durationEdit_->clear();
+        subtitleTextEdit_->clear();
+
+        return;
+    }
+
+    // Select lại dòng hợp lệ
+    if (rowIndex >= this->rows_.size()) {
+        rowIndex = this->rows_.size() - 1;
+    }
+
+    subtitleTable_->selectRow(rowIndex);
+    updateLinePropertiesFromRow(rowIndex);
+}
+
+void MainWindow::undo()
+{
+
+}
+
+void MainWindow::redo()
+{
+
+}
+
