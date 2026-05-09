@@ -1,0 +1,172 @@
+QMainWindow {
+    background: #f0f0f0;
+    color: #1a1c1c;
+    font-family: Inter, Arial, sans-serif;
+    font-size: 13px;
+}
+
+QWidget#topBar {
+    background: #f0f0f0;
+    border-bottom: 1px solid #c0c0c0;
+}
+
+QLabel#appTitle {
+    font-size: 12px;
+    font-weight: 700;
+    color: #202020;
+    padding-left: 8px;
+    padding-right: 8px;
+}
+
+/* Menu bar mới */
+QMenuBar#topMenuBar {
+    background: transparent;
+    color: #303030;
+    border: none;
+    font-size: 12px;
+}
+
+QMenuBar#topMenuBar::item {
+    background: transparent;
+    color: #303030;
+    padding: 4px 8px;
+    border: none;
+}
+
+QMenuBar#topMenuBar::item:selected {
+    background: #e5e5e5;
+    color: #202020;
+}
+
+QMenuBar#topMenuBar::item:pressed {
+    background: #dcdcdc;
+    color: #202020;
+}
+
+/* Menu dropdown */
+QMenu {
+    background: #ffffff;
+    color: #1a1c1c;
+    border: 1px solid #c0c0c0;
+    font-size: 12px;
+}
+
+QMenu::item {
+    background: transparent;
+    color: #1a1c1c;
+    padding: 6px 36px 6px 24px;
+}
+
+QMenu::item:selected {
+    background: #d3e3ff;
+    color: #001c39;
+}
+
+QMenu::separator {
+    height: 1px;
+    background: #c0c0c0;
+    margin: 4px 8px;
+}
+
+QToolButton#toolbarButton {
+    border: none;
+    background: transparent;
+    color: #303030;
+    font-size: 15px;
+}
+
+QToolButton#toolbarButton:hover {
+    background: #e5e5e5;
+}
+
+QTableWidget#subtitleTable {
+    background: #ffffff;
+    alternate-background-color: #f9f9f9;
+    gridline-color: #eeeeee;
+    border: none;
+    color: #1a1c1c;
+    font-size: 13px;
+    selection-background-color: #d3e3ff;
+    selection-color: #001c39;
+}
+
+QTableWidget#subtitleTable::item {
+    padding-left: 8px;
+    border-right: 1px solid #eeeeee;
+}
+
+QHeaderView::section {
+    background: #f0f0f0;
+    color: #404752;
+    border: none;
+    border-right: 1px solid #c0c0c0;
+    border-bottom: 1px solid #c0c0c0;
+    padding: 5px 8px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+QWidget#propertiesPanel {
+    background: #f0f0f0;
+    border-left: 1px solid #c0c0c0;
+}
+
+QWidget#propertiesHeader {
+    background: #e5e5e5;
+    border-bottom: 1px solid #c0c0c0;
+}
+
+QLabel#panelTitle {
+    color: #404752;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+QLabel#pinIcon {
+    color: #202020;
+    font-size: 13px;
+}
+
+QLabel#formLabel {
+    color: #404752;
+    font-size: 12px;
+}
+
+QLineEdit#timeEditor,
+QTextEdit#subtitleTextEdit {
+    background: #ffffff;
+    border: 1px solid #c0c0c0;
+    color: #1a1c1c;
+    padding: 6px 8px;
+    font-size: 13px;
+}
+
+QLineEdit#timeEditor:focus,
+QTextEdit#subtitleTextEdit:focus {
+    border: 1px solid #0078d4;
+}
+
+QLineEdit#readonlyTimeEditor {
+    background: #e8e8e8;
+    border: 1px solid #c0c0c0;
+    color: #b8b8b8;
+    padding: 6px 8px;
+    font-size: 13px;
+}
+
+QStatusBar#statusBar {
+    background: #f0f0f0;
+    border-top: 1px solid #c0c0c0;
+    color: #000000;
+    font-size: 11px;
+    text-transform: uppercase;
+}
+
+QStatusBar#statusBar QLabel {
+    color: #000000;
+}
+
+QStatusBar::item {
+    border: none;
+}
