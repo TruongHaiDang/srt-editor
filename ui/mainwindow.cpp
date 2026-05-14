@@ -11,7 +11,7 @@
 
 namespace
 {
-constexpr int kTopBarHeight = 48;
+constexpr int kTopBarHeight = 36;
 constexpr int kStatusBarHeight = 24;
 constexpr int kPropertiesPanelWidth = 270;
 constexpr int kRowHeight = 28;
@@ -87,10 +87,11 @@ void MainWindow::buildTopBar()
 
     auto* title = new QLabel(kAppTitle, topBar);
     title->setObjectName("appTitle");
-    layout->addWidget(title);
+    title->setAlignment(Qt::AlignVCenter);
 
     auto* menuBar = new QMenuBar(topBar);
     menuBar->setObjectName("topMenuBar");
+    menuBar->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 
     auto* fileMenu = menuBar->addMenu("File");
     auto *newAction = fileMenu->addAction("New");
@@ -115,7 +116,14 @@ void MainWindow::buildTopBar()
     auto *redoAction = editMenu->addAction("Redo");
     connect(redoAction, &QAction::triggered, this, &MainWindow::redo);
 
-    menuBar->addMenu("Tools");
+    auto* toolsMenu = menuBar->addMenu("Tools");
+    auto* ttsMenu = toolsMenu->addMenu("Text to speech");
+    auto* ttsOption = ttsMenu->addAction("Options");
+    connect(ttsOption, &QAction::triggered, this, &MainWindow::openTextToSpeechOption);
+    auto* ttsConvert = ttsMenu->addAction("Convert");
+    connect(ttsConvert, &QAction::triggered, this, &MainWindow::convertToSpeech);
+    auto* ttsConvertAll = ttsMenu->addAction("Convert all");
+    connect(ttsConvertAll, &QAction::triggered, this, &MainWindow::convertAllToSpeech);
     auto* helpMenu = menuBar->addMenu("Help");
     auto* aboutAction = helpMenu->addAction("About");
     connect(aboutAction, &QAction::triggered, this, [this](){
@@ -123,7 +131,14 @@ void MainWindow::buildTopBar()
         _aboutWindow.exec();
     });
 
-    layout->addWidget(menuBar);
+    auto* titleMenuContainer = new QWidget(topBar);
+    auto* titleMenuLayout = new QHBoxLayout(titleMenuContainer);
+    titleMenuLayout->setContentsMargins(0, 0, 0, 0);
+    titleMenuLayout->setSpacing(20);
+    titleMenuLayout->addWidget(title, 0, Qt::AlignVCenter);
+    titleMenuLayout->addWidget(menuBar, 0, Qt::AlignVCenter);
+
+    layout->addWidget(titleMenuContainer, 0, Qt::AlignVCenter);
 
     layout->addStretch();
 
@@ -690,4 +705,21 @@ void MainWindow::redo()
     restoreRows(nextState);
 
     this->statusLeftLabel_->setText("Redo");
+}
+
+void MainWindow::openTextToSpeechOption()
+{
+    TTSWindow ttsWindow(this);
+    ttsWindow.exec();
+}
+
+void MainWindow::convertToSpeech()
+{
+    TTSWindow ttsWindow;
+    ttsWindow.exec();
+}
+
+void MainWindow::convertAllToSpeech()
+{
+
 }

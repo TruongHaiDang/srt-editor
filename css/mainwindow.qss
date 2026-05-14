@@ -14,8 +14,7 @@ QLabel#appTitle {
     font-size: 12px;
     font-weight: 700;
     color: #202020;
-    padding-left: 8px;
-    padding-right: 8px;
+    padding: 0 8px;
 }
 
 /* Menu bar mới */
@@ -24,6 +23,7 @@ QMenuBar#topMenuBar {
     color: #303030;
     border: none;
     font-size: 12px;
+    padding: 0;
 }
 
 QMenuBar#topMenuBar::item {

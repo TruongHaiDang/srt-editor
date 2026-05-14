@@ -29,6 +29,7 @@
 #include <QTime>
 
 #include "aboutwindow.h"
+#include "ttswindow.h"
 
 class QAction;
 class QLabel;
@@ -83,6 +84,10 @@ private:
     void delLine();
     void undo();
     void redo();
+
+    void openTextToSpeechOption();
+    void convertToSpeech();
+    void convertAllToSpeech();
 
 private:
     QWidget* centralContainer_ = nullptr;
