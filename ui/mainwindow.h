@@ -64,6 +64,7 @@ private:
     void buildStatusBar();
 
     QToolButton* createToolbarButton(const QString& text, const QString& tooltip);
+    QPushButton* createPanelButton(const QString& text, QWidget& parent);
     QLabel* createPanelLabel(const QString& text);
     QLineEdit* createTimeEditor(const QString& text, bool readOnly = false);
     QString calculateDuration(const QString& startTime, const QString& endTime);
@@ -88,6 +89,7 @@ private:
     void openTextToSpeechOption();
     void convertToSpeech();
     void convertAllToSpeech();
+    void convertRowsToSpeech(const QVector<int>& rowIndexes);
 
 private:
     QWidget* centralContainer_ = nullptr;

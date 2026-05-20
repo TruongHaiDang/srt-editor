@@ -35,6 +35,7 @@ const char* kSettingsGroup = "tts/elevenlabs";
 const char* kApiKeySetting = "apiKey";
 const char* kModelSetting = "model";
 const char* kVoiceSetting = "voice";
+const char* kVoiceIdSetting = "voiceId";
 const char* kOutputFormatSetting = "outputFormat";
 const char* kStabilitySetting = "stability";
 const char* kSimilaritySetting = "similarity";
@@ -108,6 +109,16 @@ QList<VoiceOption> extractVoiceOptions(const QString& responseBody)
     }
 
     return voiceOptions;
+}
+
+QString currentVoiceId(const QComboBox& comboBox)
+{
+    const QString voiceId = comboBox.currentData().toString().trimmed();
+    if (!voiceId.isEmpty()) {
+        return voiceId;
+    }
+
+    return comboBox.currentText().trimmed();
 }
 }
 
@@ -308,7 +319,9 @@ void TTSWindow::loadSettings()
     }
 
     if (voiceComboBox_ != nullptr) {
-        restoreComboBoxValue(*voiceComboBox_, settings.value(kVoiceSetting, kEmptyText).toString());
+        const QString savedVoiceId = settings.value(kVoiceIdSetting).toString();
+        const QString savedVoiceName = settings.value(kVoiceSetting, kEmptyText).toString();
+        restoreComboBoxValue(*voiceComboBox_, savedVoiceId.isEmpty() ? savedVoiceName : savedVoiceId);
     }
 
     if (outputFormatComboBox_ != nullptr) {
@@ -366,7 +379,8 @@ void TTSWindow::saveSettings() const
     }
 
     if (voiceComboBox_ != nullptr) {
-        settings.setValue(kVoiceSetting, voiceComboBox_->currentText());
+        settings.setValue(kVoiceSetting, voiceComboBox_->currentText().trimmed());
+        settings.setValue(kVoiceIdSetting, currentVoiceId(*voiceComboBox_));
     }
 
     if (outputFormatComboBox_ != nullptr) {
@@ -670,6 +684,12 @@ void TTSWindow::saveAndAccept()
 
 void TTSWindow::restoreComboBoxValue(QComboBox& comboBox, const QString& value) const
 {
+    const int itemDataIndex = comboBox.findData(value);
+    if (itemDataIndex >= 0) {
+        comboBox.setCurrentIndex(itemDataIndex);
+        return;
+    }
+
     const int itemIndex = comboBox.findText(value);
     if (itemIndex >= 0) {
         comboBox.setCurrentIndex(itemIndex);
@@ -784,7 +804,7 @@ void TTSWindow::loadElevenLabsVoices()
             if (voiceOptions.isEmpty()) {
                 QMessageBox::warning(this, "ElevenLabs", "No voices found in ElevenLabs response.");
             } else if (voiceComboBox_ != nullptr) {
-                const QString currentVoice = voiceComboBox_->currentText();
+                const QString currentVoice = currentVoiceId(*voiceComboBox_);
                 voiceComboBox_->clear();
 
                 for (const VoiceOption& voiceOption : voiceOptions) {

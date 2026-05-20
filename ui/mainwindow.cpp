@@ -1,5 +1,15 @@
 #include "mainwindow.h"
 #include "aboutwindow.h"
+#include "elevenlabs.h"
+
+#include <QtCore/QDir>
+#include <QtCore/QDateTime>
+#include <QtCore/QFileInfo>
+#include <QtCore/QRegularExpression>
+#include <QtCore/QSettings>
+#include <QtCore/QThread>
+#include <QtCore/QUuid>
+
 #include <qaction.h>
 #include <qdebug.h>
 #include <qfiledevice.h>
@@ -8,6 +18,9 @@
 #include <qobject.h>
 #include <qpicture.h>
 #include <qstringconverter_base.h>
+
+#include <exception>
+#include <string>
 
 namespace
 {
@@ -22,6 +35,202 @@ constexpr int kColumnEndTime = 2;
 constexpr int kColumnSubtitleText = 3;
 
 const char* kAppTitle = "SubtitleEdit Free";
+const char* kSettingsGroup = "tts/elevenlabs";
+const char* kApiKeySetting = "apiKey";
+const char* kModelSetting = "model";
+const char* kVoiceSetting = "voice";
+const char* kVoiceIdSetting = "voiceId";
+const char* kOutputFormatSetting = "outputFormat";
+const char* kStabilitySetting = "stability";
+const char* kSimilaritySetting = "similarity";
+const char* kStyleSetting = "style";
+const char* kSpeakerBoostSetting = "speakerBoost";
+const char* kOutputFolderSetting = "outputFolder";
+const char* kFilePatternSetting = "filePattern";
+const char* kMaxCharsSetting = "maxCharsPerRequest";
+const char* kDelaySetting = "delayMs";
+
+const char* kDefaultModelId = "eleven_multilingual_v2";
+const char* kDefaultOutputFormat = "mp3_44100_128";
+const char* kDefaultFilePattern = "{filename}_{voice}_{index}";
+constexpr int kDefaultStability = 50;
+constexpr int kDefaultSimilarity = 75;
+constexpr int kDefaultStyle = 0;
+constexpr bool kDefaultSpeakerBoost = true;
+constexpr int kDefaultMaxCharsPerRequest = 5000;
+constexpr int kDefaultDelayMs = 250;
+constexpr double kSliderValueDivisor = 100.0;
+
+struct TextToSpeechSettings final
+{
+    QString apiKey;
+    QString voiceId;
+    QString modelId;
+    QString outputFormat;
+    QString outputFolder;
+    QString filePattern;
+    int maxCharsPerRequest = kDefaultMaxCharsPerRequest;
+    int delayMs = kDefaultDelayMs;
+    int stability = kDefaultStability;
+    int similarity = kDefaultSimilarity;
+    int style = kDefaultStyle;
+    bool speakerBoost = kDefaultSpeakerBoost;
+};
+
+int readPositiveIntSetting(QSettings& settings, const char* key, int defaultValue)
+{
+    bool isValid = false;
+    const int value = settings.value(key, defaultValue).toInt(&isValid);
+    return isValid && value > 0 ? value : defaultValue;
+}
+
+int readNonNegativeIntSetting(QSettings& settings, const char* key, int defaultValue)
+{
+    bool isValid = false;
+    const int value = settings.value(key, defaultValue).toInt(&isValid);
+    return isValid && value >= 0 ? value : defaultValue;
+}
+
+int readSliderPercentSetting(QSettings& settings, const char* key, int defaultValue)
+{
+    bool isValid = false;
+    const int value = settings.value(key, defaultValue).toInt(&isValid);
+    return isValid && value >= 0 && value <= 100 ? value : defaultValue;
+}
+
+QString sanitizeFileName(QString value)
+{
+    value = value.trimmed();
+    value.replace(QRegularExpression(R"([<>:"/\\|?*\x00-\x1F])"), "_");
+    value.replace(QRegularExpression(R"(\s+)"), " ");
+    return value.isEmpty() ? QStringLiteral("subtitle") : value;
+}
+
+QString fileExtensionForOutputFormat(const QString& outputFormat)
+{
+    if (outputFormat.startsWith("mp3", Qt::CaseInsensitive)) {
+        return QStringLiteral("mp3");
+    }
+
+    if (outputFormat.startsWith("pcm", Qt::CaseInsensitive)) {
+        return QStringLiteral("pcm");
+    }
+
+    if (outputFormat.startsWith("ulaw", Qt::CaseInsensitive)) {
+        return QStringLiteral("ulaw");
+    }
+
+    return QStringLiteral("audio");
+}
+
+QString shortenForFileName(const QString& text)
+{
+    QString shortened = text.simplified();
+    if (shortened.size() > 36) {
+        shortened = shortened.left(36).trimmed();
+    }
+
+    return sanitizeFileName(shortened.replace(' ', '_')).toLower();
+}
+
+bool isLikelyElevenLabsVoiceId(const QString& value)
+{
+    static const QRegularExpression voiceIdPattern(R"(^[A-Za-z0-9_-]{10,}$)");
+    return voiceIdPattern.match(value.trimmed()).hasMatch();
+}
+
+TextToSpeechSettings readTextToSpeechSettings()
+{
+    QSettings settings;
+    settings.beginGroup(kSettingsGroup);
+
+    TextToSpeechSettings result;
+    result.apiKey = settings.value(kApiKeySetting).toString().trimmed();
+    result.voiceId = settings.value(kVoiceIdSetting).toString().trimmed();
+    if (result.voiceId.isEmpty()) {
+        const QString legacyVoiceValue = settings.value(kVoiceSetting).toString().trimmed();
+        result.voiceId = isLikelyElevenLabsVoiceId(legacyVoiceValue) ? legacyVoiceValue : QString();
+    }
+    result.modelId = settings.value(kModelSetting, kDefaultModelId).toString().trimmed();
+    result.outputFormat = settings.value(kOutputFormatSetting, kDefaultOutputFormat).toString().trimmed();
+    result.outputFolder = settings.value(kOutputFolderSetting).toString().trimmed();
+    result.filePattern = settings.value(kFilePatternSetting, kDefaultFilePattern).toString().trimmed();
+    result.maxCharsPerRequest = readPositiveIntSetting(settings, kMaxCharsSetting, kDefaultMaxCharsPerRequest);
+    result.delayMs = readNonNegativeIntSetting(settings, kDelaySetting, kDefaultDelayMs);
+    result.stability = readSliderPercentSetting(settings, kStabilitySetting, kDefaultStability);
+    result.similarity = readSliderPercentSetting(settings, kSimilaritySetting, kDefaultSimilarity);
+    result.style = readSliderPercentSetting(settings, kStyleSetting, kDefaultStyle);
+    result.speakerBoost = settings.value(kSpeakerBoostSetting, kDefaultSpeakerBoost).toBool();
+
+    if (result.modelId.isEmpty()) {
+        result.modelId = kDefaultModelId;
+    }
+
+    if (result.outputFormat.isEmpty()) {
+        result.outputFormat = kDefaultOutputFormat;
+    }
+
+    if (result.filePattern.isEmpty()) {
+        result.filePattern = kDefaultFilePattern;
+    }
+
+    return result;
+}
+
+ElevenLabsTextToSpeechRequest createTextToSpeechRequest(
+    const TextToSpeechSettings& settings,
+    const QString& text
+)
+{
+    ElevenLabsTextToSpeechRequest request;
+    request.voice_id = settings.voiceId.toStdString();
+    request.text = text.toStdString();
+    request.model_id = settings.modelId.toStdString();
+    request.output_format = settings.outputFormat.toStdString();
+    request.voice_settings.stability = settings.stability / kSliderValueDivisor;
+    request.voice_settings.similarity_boost = settings.similarity / kSliderValueDivisor;
+    request.voice_settings.style = settings.style / kSliderValueDivisor;
+    request.voice_settings.use_speaker_boost = settings.speakerBoost;
+    return request;
+}
+
+QString buildTextToSpeechOutputPath(
+    const TextToSpeechSettings& settings,
+    const QString& currentSrtFilePath,
+    int rowIndex,
+    const QString& text
+)
+{
+    const QFileInfo sourceFile(currentSrtFilePath);
+    const QString sourceBaseName = sourceFile.exists()
+        ? sourceFile.completeBaseName()
+        : QStringLiteral("subtitle");
+    const QDateTime now = QDateTime::currentDateTime();
+
+    QString fileName = settings.filePattern;
+    fileName.replace("{voice}", settings.voiceId);
+    fileName.replace("{voice_id}", settings.voiceId);
+    fileName.replace("{model}", settings.modelId);
+    fileName.replace("{date}", now.toString("yyyyMMdd"));
+    fileName.replace("{time}", now.toString("HHmmss"));
+    fileName.replace("{datetime}", now.toString("yyyyMMdd_HHmmss"));
+    fileName.replace("{index}", QString("%1").arg(rowIndex, 4, 10, QChar('0')));
+    fileName.replace("{project}", sourceBaseName);
+    fileName.replace("{filename}", sourceBaseName);
+    fileName.replace("{text}", shortenForFileName(text));
+    fileName.replace("{lang}", "default");
+    fileName.replace("{speaker}", settings.voiceId);
+    fileName.replace("{chunk}", QString("chunk_%1").arg(rowIndex, 2, 10, QChar('0')));
+    fileName.replace("{uuid}", QUuid::createUuid().toString(QUuid::WithoutBraces));
+    fileName = sanitizeFileName(fileName);
+
+    const QString extension = fileExtensionForOutputFormat(settings.outputFormat);
+    if (!fileName.endsWith("." + extension, Qt::CaseInsensitive)) {
+        fileName += "." + extension;
+    }
+
+    return QDir(settings.outputFolder).filePath(fileName);
+}
 }
 
 MainWindow::MainWindow(QWidget* parent)
@@ -174,6 +383,15 @@ QToolButton* MainWindow::createToolbarButton(const QString& text, const QString&
     return button;
 }
 
+QPushButton* MainWindow::createPanelButton(const QString& text, QWidget& parent)
+{
+    auto* button = new QPushButton(text, &parent);
+    button->setObjectName("propertiesActionButton");
+    button->setFixedHeight(40);
+    button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    return button;
+}
+
 void MainWindow::buildSubtitleTable()
 {
     subtitleTable_ = new QTableWidget(this);
@@ -256,6 +474,11 @@ void MainWindow::buildLinePropertiesPanel()
     subtitleTextEdit_->setObjectName("subtitleTextEdit");
     subtitleTextEdit_->setFixedHeight(138);
     formLayout->addWidget(subtitleTextEdit_);
+
+    formLayout->addSpacing(6);
+    auto* convertToSpeechButton = createPanelButton("Convert to speech", *content);
+    connect(convertToSpeechButton, &QPushButton::clicked, this, &MainWindow::convertToSpeech);
+    formLayout->addWidget(convertToSpeechButton);
 
     formLayout->addStretch();
     rootLayout->addWidget(content, 1);
@@ -715,11 +938,197 @@ void MainWindow::openTextToSpeechOption()
 
 void MainWindow::convertToSpeech()
 {
-    TTSWindow ttsWindow;
-    ttsWindow.exec();
+    const int currentRow = subtitleTable_->currentRow();
+    if (currentRow < 0 || currentRow >= rows_.size()) {
+        QMessageBox::warning(this, "Text to speech", "Please select a subtitle line to convert.");
+        return;
+    }
+
+    convertRowsToSpeech({currentRow});
 }
 
 void MainWindow::convertAllToSpeech()
 {
+    if (rows_.isEmpty()) {
+        QMessageBox::warning(this, "Text to speech", "There are no subtitle lines to convert.");
+        return;
+    }
 
+    QVector<int> rowIndexes;
+    rowIndexes.reserve(rows_.size());
+
+    for (int rowIndex = 0; rowIndex < rows_.size(); ++rowIndex) {
+        rowIndexes.append(rowIndex);
+    }
+
+    convertRowsToSpeech(rowIndexes);
+}
+
+void MainWindow::convertRowsToSpeech(const QVector<int>& rowIndexes)
+{
+    if (rowIndexes.isEmpty()) {
+        return;
+    }
+
+    updateCurrentRowFromLineProperties();
+
+    TextToSpeechSettings settings = readTextToSpeechSettings();
+    if (settings.apiKey.isEmpty() || settings.voiceId.isEmpty() || settings.outputFolder.isEmpty()) {
+        QMessageBox::warning(
+            this,
+            "Text to speech",
+            "Please configure the ElevenLabs API key, voice, and output folder before converting. Use Load Voices, select a voice, then save settings."
+        );
+
+        TTSWindow ttsWindow(this);
+        if (ttsWindow.exec() != QDialog::Accepted) {
+            return;
+        }
+
+        settings = readTextToSpeechSettings();
+        if (settings.apiKey.isEmpty() || settings.voiceId.isEmpty() || settings.outputFolder.isEmpty()) {
+            QMessageBox::warning(
+                this,
+                "Text to speech",
+                "The ElevenLabs API key, voice ID, and output folder are required."
+            );
+            return;
+        }
+    }
+
+    QDir outputDirectory(settings.outputFolder);
+    if (!outputDirectory.exists() && !outputDirectory.mkpath(".")) {
+        QMessageBox::critical(
+            this,
+            "Text to speech",
+            QString("Cannot create output folder: %1").arg(settings.outputFolder)
+        );
+        return;
+    }
+
+    ElevenLabsClient client(settings.apiKey.toStdString());
+    int convertedCount = 0;
+    int skippedCount = 0;
+
+    for (int index = 0; index < rowIndexes.size(); ++index) {
+        const int rowIndex = rowIndexes.at(index);
+        if (rowIndex < 0 || rowIndex >= rows_.size()) {
+            ++skippedCount;
+            continue;
+        }
+
+        const SubtitleRow& subtitle = rows_.at(rowIndex);
+        const QString text = subtitle.text.trimmed();
+        if (text.isEmpty()) {
+            ++skippedCount;
+            continue;
+        }
+
+        if (text.size() > settings.maxCharsPerRequest) {
+            QMessageBox::warning(
+                this,
+                "Text to speech",
+                QString("Line %1 is longer than the configured Max Chars/Req.").arg(subtitle.index)
+            );
+            ++skippedCount;
+            continue;
+        }
+
+        const QString outputPath = buildTextToSpeechOutputPath(
+            settings,
+            _currentSrtFilePath,
+            subtitle.index,
+            text
+        );
+
+        statusLeftLabel_->setText(
+            QString("Converting line %1 to speech...").arg(subtitle.index)
+        );
+        QApplication::processEvents();
+
+        try {
+            const ElevenLabsTextToSpeechRequest request = createTextToSpeechRequest(settings, text);
+            const ElevenLabsResponse response = client.textToSpeech(request);
+
+            if (response.status_code < 200 || response.status_code >= 300) {
+                const QString errorBody = QString::fromUtf8(
+                    response.body.data(),
+                    static_cast<qsizetype>(response.body.size())
+                ).left(500);
+                QMessageBox::warning(
+                    this,
+                    "Text to speech",
+                    QString("Convert line %1 failed. HTTP status: %2\n%3")
+                        .arg(subtitle.index)
+                        .arg(response.status_code)
+                        .arg(errorBody)
+                );
+                ++skippedCount;
+                continue;
+            }
+
+            if (response.body.empty()) {
+                QMessageBox::warning(
+                    this,
+                    "Text to speech",
+                    QString("Convert line %1 failed because ElevenLabs returned empty audio.").arg(subtitle.index)
+                );
+                ++skippedCount;
+                continue;
+            }
+
+            QFile outputFile(outputPath);
+            if (!outputFile.open(QIODevice::WriteOnly)) {
+                QMessageBox::critical(
+                    this,
+                    "Text to speech",
+                    QString("Cannot write audio file: %1").arg(outputPath)
+                );
+                ++skippedCount;
+                continue;
+            }
+
+            const qint64 bytesWritten = outputFile.write(
+                response.body.data(),
+                static_cast<qint64>(response.body.size())
+            );
+            if (bytesWritten != static_cast<qint64>(response.body.size())) {
+                QMessageBox::critical(
+                    this,
+                    "Text to speech",
+                    QString("Cannot write complete audio file: %1").arg(outputPath)
+                );
+                ++skippedCount;
+                continue;
+            }
+
+            ++convertedCount;
+        } catch (const std::exception& error) {
+            QMessageBox::critical(
+                this,
+                "Text to speech",
+                QString("Convert line %1 failed: %2")
+                    .arg(subtitle.index)
+                    .arg(QString::fromUtf8(error.what()))
+            );
+            ++skippedCount;
+            continue;
+        }
+
+        if (settings.delayMs > 0 && index < rowIndexes.size() - 1) {
+            QThread::msleep(static_cast<unsigned long>(settings.delayMs));
+        }
+    }
+
+    statusLeftLabel_->setText(
+        QString("Text to speech complete. Converted %1, skipped %2.")
+            .arg(convertedCount)
+            .arg(skippedCount)
+    );
+
+    QMessageBox::information(
+        this,
+        "Text to speech",
+        QString("Converted %1 subtitle line(s). Skipped %2.").arg(convertedCount).arg(skippedCount)
+    );
 }
