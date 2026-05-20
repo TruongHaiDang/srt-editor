@@ -83,6 +83,11 @@ QLabel#ttsFormLabel {
     font-size: 13px;
 }
 
+QLabel#ttsInlineLabel {
+    color: #1a1c1c;
+    font-size: 13px;
+}
+
 QLineEdit#ttsLineEdit,
 QComboBox#ttsComboBox,
 QTextEdit#previewTextEdit {
@@ -103,6 +108,15 @@ QTextEdit#previewTextEdit:focus {
 QComboBox#ttsComboBox::drop-down {
     width: 22px;
     border-left: 1px solid #c0c0c0;
+}
+
+QComboBox#ttsComboBox QAbstractItemView {
+    background: #ffffff;
+    border: 1px solid #c0c0c0;
+    color: #1a1c1c;
+    selection-background-color: #0078d4;
+    selection-color: #ffffff;
+    outline: none;
 }
 
 QTextEdit#previewTextEdit {

@@ -51,7 +51,7 @@ mkdir -p build && cd build
 Configure project:
 
 ```bash
-cmake ..
+cmake -S .. -B . -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release
 ```
 
 Build executable:

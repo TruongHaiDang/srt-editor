@@ -63,6 +63,8 @@ private:
     void buildSettingsPanel(QWidget& parent, QHBoxLayout& contentLayout);
     void buildActionBar(QVBoxLayout& rootLayout);
     void applyStyle();
+    void loadSettings();
+    void saveSettings() const;
 
     void addElevenLabsSection(QGridLayout& formLayout, QWidget& parent, int& row);
     void addVoiceOverridesSection(QGridLayout& formLayout, QWidget& parent, int& row);
@@ -74,12 +76,29 @@ private:
     QFrame* createSeparator(QWidget& parent) const;
     QLineEdit* createLineEdit(const QString& text, QWidget& parent, QLineEdit::EchoMode echoMode = QLineEdit::Normal) const;
     QComboBox* createComboBox(const QStringList& values, QWidget& parent) const;
-    QWidget* createSliderRow(const QString& objectName, int initialValue, QWidget& parent) const;
+    QWidget* createSliderRow(const QString& objectName, int initialValue, QWidget& parent, QSlider*& slider) const;
     QPushButton* createButton(const QString& text, QWidget& parent) const;
+    QString createFilePatternToolTip() const;
 
+    void saveAndAccept();
+    void restoreComboBoxValue(QComboBox& comboBox, const QString& value) const;
     void browseOutputFolder();
+    void testElevenLabsConnection();
+    void loadElevenLabsVoices();
 
     QWidget* titleBar_ = nullptr;
+    QLineEdit* apiKeyEdit_ = nullptr;
+    QComboBox* modelComboBox_ = nullptr;
+    QComboBox* voiceComboBox_ = nullptr;
+    QComboBox* outputFormatComboBox_ = nullptr;
+    QSlider* stabilitySlider_ = nullptr;
+    QSlider* similaritySlider_ = nullptr;
+    QSlider* styleSlider_ = nullptr;
+    QCheckBox* speakerBoostCheckBox_ = nullptr;
     QLineEdit* outputFolderEdit_ = nullptr;
+    QLineEdit* filePatternEdit_ = nullptr;
+    QLineEdit* maxCharsEdit_ = nullptr;
+    QLineEdit* delayEdit_ = nullptr;
+    QTextEdit* previewTextEdit_ = nullptr;
     QPoint dragPosition_;
 };
