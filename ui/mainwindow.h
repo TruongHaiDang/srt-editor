@@ -29,7 +29,7 @@
 #include <QTime>
 
 #include "aboutwindow.h"
-#include "ttswindow.h"
+#include "settingwindow.h"
 
 class QAction;
 class QLabel;
@@ -90,6 +90,9 @@ private:
     void convertToSpeech();
     void convertAllToSpeech();
     void convertRowsToSpeech(const QVector<int>& rowIndexes);
+
+    void translateTo();
+    void translateAllTo();
 
 private:
     QWidget* centralContainer_ = nullptr;

@@ -20,6 +20,7 @@
 #include <QtWidgets/QPushButton>
 #include <QtWidgets/QScrollArea>
 #include <QtWidgets/QSlider>
+#include <QtWidgets/QStackedWidget>
 #include <QtWidgets/QTextEdit>
 #include <QtWidgets/QVBoxLayout>
 
@@ -32,6 +33,7 @@ class QLabel;
 class QListWidget;
 class QPushButton;
 class QSlider;
+class QStackedWidget;
 class QTextEdit;
 class QVBoxLayout;
 class QWidget;
@@ -44,13 +46,13 @@ class QWidget;
  * Errors: this UI layer does not perform network/file writes; invalid settings are not persisted here.
  * Assumption: backend TTS integration will read validated settings from this dialog in a later step.
  */
-class TTSWindow final : public QDialog
+class SettingWindow final : public QDialog
 {
     Q_OBJECT
 
 public:
-    explicit TTSWindow(QWidget* parent = nullptr);
-    ~TTSWindow() override = default;
+    explicit SettingWindow(QWidget* parent = nullptr);
+    ~SettingWindow() override = default;
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
@@ -67,9 +69,11 @@ private:
     void saveSettings() const;
 
     void addElevenLabsSection(QGridLayout& formLayout, QWidget& parent, int& row);
+    void addOpenAISection(QGridLayout& formLayout, QWidget& parent, int& row);
     void addVoiceOverridesSection(QGridLayout& formLayout, QWidget& parent, int& row);
     void addProcessingSection(QGridLayout& formLayout, QWidget& parent, int& row);
     void addPreviewSection(QGridLayout& formLayout, QWidget& parent, int& row);
+    QScrollArea* createSettingsScrollPage(QWidget& parent, QGridLayout*& formLayout) const;
 
     QLabel* createFormLabel(const QString& text, QWidget& parent) const;
     QLabel* createSectionTitle(const QString& text, QWidget& parent) const;
@@ -87,7 +91,9 @@ private:
     void loadElevenLabsVoices();
 
     QWidget* titleBar_ = nullptr;
+    QStackedWidget* settingsStack_ = nullptr;
     QLineEdit* apiKeyEdit_ = nullptr;
+    QLineEdit* openAiApiKeyEdit_ = nullptr;
     QComboBox* modelComboBox_ = nullptr;
     QComboBox* voiceComboBox_ = nullptr;
     QComboBox* outputFormatComboBox_ = nullptr;

@@ -1,16 +1,25 @@
 #include "mainwindow.h"
 #include "aboutwindow.h"
 #include "elevenlabs.h"
+#include "translator.h"
 
 #include <QtCore/QDir>
 #include <QtCore/QDateTime>
 #include <QtCore/QFileInfo>
+#include <QtCore/QJsonArray>
+#include <QtCore/QJsonDocument>
+#include <QtCore/QJsonObject>
+#include <QtCore/QJsonValue>
 #include <QtCore/QRegularExpression>
 #include <QtCore/QSettings>
 #include <QtCore/QThread>
 #include <QtCore/QUuid>
+#include <QtWidgets/QDialog>
+#include <QtWidgets/QDialogButtonBox>
+#include <QtWidgets/QFormLayout>
 
 #include <qaction.h>
+#include <qarraydata.h>
 #include <qdebug.h>
 #include <qfiledevice.h>
 #include <qfiledialog.h>
@@ -20,6 +29,7 @@
 #include <qstringconverter_base.h>
 
 #include <exception>
+#include <optional>
 #include <string>
 
 namespace
@@ -37,6 +47,8 @@ constexpr int kColumnSubtitleText = 3;
 const char* kAppTitle = "SubtitleEdit Free";
 const char* kSettingsGroup = "tts/elevenlabs";
 const char* kApiKeySetting = "apiKey";
+const char* kOpenAISettingsGroup = "translator/openai";
+const char* kOpenAIApiKeySetting = "apiKey";
 const char* kModelSetting = "model";
 const char* kVoiceSetting = "voice";
 const char* kVoiceIdSetting = "voiceId";
@@ -60,6 +72,13 @@ constexpr bool kDefaultSpeakerBoost = true;
 constexpr int kDefaultMaxCharsPerRequest = 5000;
 constexpr int kDefaultDelayMs = 250;
 constexpr double kSliderValueDivisor = 100.0;
+constexpr qint64 kInvalidAudioDurationMs = -1;
+constexpr int kMillisecondsPerSecond = 1000;
+constexpr int kSecondsPerMinute = 60;
+constexpr int kMinutesPerHour = 60;
+constexpr int kHoursPerDay = 24;
+constexpr qint64 kMillisecondsPerDay =
+    kMillisecondsPerSecond * kSecondsPerMinute * kMinutesPerHour * kHoursPerDay;
 
 struct TextToSpeechSettings final
 {
@@ -75,6 +94,17 @@ struct TextToSpeechSettings final
     int similarity = kDefaultSimilarity;
     int style = kDefaultStyle;
     bool speakerBoost = kDefaultSpeakerBoost;
+};
+
+struct OpenAITranslationSettings final
+{
+    QString apiKey;
+};
+
+struct TranslationLanguageSelection final
+{
+    QString sourceLanguage;
+    QString targetLanguage;
 };
 
 int readPositiveIntSetting(QSettings& settings, const char* key, int defaultValue)
@@ -177,6 +207,153 @@ TextToSpeechSettings readTextToSpeechSettings()
     return result;
 }
 
+OpenAITranslationSettings readOpenAITranslationSettings()
+{
+    QSettings settings;
+    settings.beginGroup(kOpenAISettingsGroup);
+
+    OpenAITranslationSettings result;
+    result.apiKey = settings.value(kOpenAIApiKeySetting).toString().trimmed();
+
+    return result;
+}
+
+QComboBox* createLanguageComboBox(QWidget& parent, const QString& defaultLanguage)
+{
+    auto* comboBox = new QComboBox(&parent);
+    comboBox->setEditable(true);
+    comboBox->addItems({
+        "Auto",
+        "English",
+        "Vietnamese",
+        "Chinese",
+        "Japanese",
+        "Korean",
+        "French",
+        "German",
+        "Spanish",
+        "Portuguese",
+        "Thai",
+    });
+
+    const int defaultIndex = comboBox->findText(defaultLanguage);
+    if (defaultIndex >= 0) {
+        comboBox->setCurrentIndex(defaultIndex);
+    } else {
+        comboBox->setCurrentText(defaultLanguage);
+    }
+
+    return comboBox;
+}
+
+std::optional<TranslationLanguageSelection> requestTranslationLanguages(QWidget& parent)
+{
+    QDialog dialog(&parent);
+    dialog.setWindowTitle("Translate subtitles");
+    dialog.setModal(true);
+
+    auto* layout = new QVBoxLayout(&dialog);
+    auto* formLayout = new QFormLayout();
+
+    auto* sourceLanguageComboBox = createLanguageComboBox(dialog, "Auto");
+    auto* targetLanguageComboBox = createLanguageComboBox(dialog, "Vietnamese");
+
+    formLayout->addRow("Source language:", sourceLanguageComboBox);
+    formLayout->addRow("Target language:", targetLanguageComboBox);
+    layout->addLayout(formLayout);
+
+    auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    QObject::connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    QObject::connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    layout->addWidget(buttons);
+
+    if (dialog.exec() != QDialog::Accepted) {
+        return std::nullopt;
+    }
+
+    TranslationLanguageSelection selection{
+        sourceLanguageComboBox->currentText().trimmed(),
+        targetLanguageComboBox->currentText().trimmed(),
+    };
+
+    if (selection.sourceLanguage.isEmpty() || selection.targetLanguage.isEmpty()) {
+        QMessageBox::warning(&parent, "Translate", "Source and target language are required.");
+        return std::nullopt;
+    }
+
+    return selection;
+}
+
+std::optional<QString> translatedTextFromJsonObject(const QJsonObject& object)
+{
+    const QString directText = object.value("translated_text").toString();
+    if (!directText.isEmpty()) {
+        return directText;
+    }
+
+    const QString outputText = object.value("output_text").toString();
+    if (!outputText.isEmpty()) {
+        QJsonParseError parseError;
+        const QJsonDocument outputDocument = QJsonDocument::fromJson(outputText.toUtf8(), &parseError);
+        if (parseError.error == QJsonParseError::NoError && outputDocument.isObject()) {
+            return translatedTextFromJsonObject(outputDocument.object());
+        }
+    }
+
+    return std::nullopt;
+}
+
+std::optional<QString> extractTranslatedTextFromResponse(const QString& responseBody)
+{
+    QJsonParseError parseError;
+    const QJsonDocument document = QJsonDocument::fromJson(responseBody.toUtf8(), &parseError);
+    if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
+        return std::nullopt;
+    }
+
+    const QJsonObject root = document.object();
+    const std::optional<QString> rootText = translatedTextFromJsonObject(root);
+    if (rootText.has_value()) {
+        return rootText;
+    }
+
+    const QJsonArray output = root.value("output").toArray();
+    for (const QJsonValue& outputValue : output) {
+        const QJsonArray content = outputValue.toObject().value("content").toArray();
+        for (const QJsonValue& contentValue : content) {
+            const QJsonObject contentObject = contentValue.toObject();
+            const QString text = contentObject.value("text").toString();
+            if (text.isEmpty()) {
+                continue;
+            }
+
+            QJsonParseError outputParseError;
+            const QJsonDocument outputDocument = QJsonDocument::fromJson(text.toUtf8(), &outputParseError);
+            if (outputParseError.error == QJsonParseError::NoError && outputDocument.isObject()) {
+                const std::optional<QString> translatedText = translatedTextFromJsonObject(outputDocument.object());
+                if (translatedText.has_value()) {
+                    return translatedText;
+                }
+            }
+        }
+    }
+
+    return std::nullopt;
+}
+
+OpenAITranslatorRequest createOpenAITranslatorRequest(
+    const TranslationLanguageSelection& languages,
+    const QString& content
+)
+{
+    OpenAITranslatorRequest request;
+    request.source_language = languages.sourceLanguage.toStdString();
+    request.target_language = languages.targetLanguage.toStdString();
+    request.content_type = "subtitle";
+    request.content = content.toStdString();
+    return request;
+}
+
 ElevenLabsTextToSpeechRequest createTextToSpeechRequest(
     const TextToSpeechSettings& settings,
     const QString& text
@@ -230,6 +407,260 @@ QString buildTextToSpeechOutputPath(
     }
 
     return QDir(settings.outputFolder).filePath(fileName);
+}
+
+int readId3v2TagSize(const QByteArray& audioBytes)
+{
+    constexpr int kId3HeaderSize = 10;
+    constexpr int kId3FooterSize = 10;
+    constexpr int kId3FooterPresentFlag = 0x10;
+
+    if (audioBytes.size() < kId3HeaderSize || audioBytes.left(3) != "ID3") {
+        return 0;
+    }
+
+    const auto synchsafeByte = [&audioBytes](int offset) -> int {
+        return static_cast<unsigned char>(audioBytes.at(offset)) & 0x7f;
+    };
+
+    const int tagSize =
+        (synchsafeByte(6) << 21) |
+        (synchsafeByte(7) << 14) |
+        (synchsafeByte(8) << 7) |
+        synchsafeByte(9);
+    const bool hasFooter = (static_cast<unsigned char>(audioBytes.at(5)) & kId3FooterPresentFlag) != 0;
+    return kId3HeaderSize + tagSize + (hasFooter ? kId3FooterSize : 0);
+}
+
+std::optional<int> mp3BitrateKbps(int versionBits, int layerBits, int bitrateIndex)
+{
+    static constexpr int kMpeg1Layer1Bitrates[] = {
+        0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448
+    };
+    static constexpr int kMpeg1Layer2Bitrates[] = {
+        0, 32, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384
+    };
+    static constexpr int kMpeg1Layer3Bitrates[] = {
+        0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320
+    };
+    static constexpr int kMpeg2Layer1Bitrates[] = {
+        0, 32, 48, 56, 64, 80, 96, 112, 128, 144, 160, 176, 192, 224, 256
+    };
+    static constexpr int kMpeg2Layer2And3Bitrates[] = {
+        0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160
+    };
+
+    if (bitrateIndex <= 0 || bitrateIndex >= 15) {
+        return std::nullopt;
+    }
+
+    const bool isMpeg1 = versionBits == 3;
+    if (isMpeg1 && layerBits == 3) {
+        return kMpeg1Layer1Bitrates[bitrateIndex];
+    }
+    if (isMpeg1 && layerBits == 2) {
+        return kMpeg1Layer2Bitrates[bitrateIndex];
+    }
+    if (isMpeg1 && layerBits == 1) {
+        return kMpeg1Layer3Bitrates[bitrateIndex];
+    }
+    if (!isMpeg1 && layerBits == 3) {
+        return kMpeg2Layer1Bitrates[bitrateIndex];
+    }
+    if (!isMpeg1 && (layerBits == 2 || layerBits == 1)) {
+        return kMpeg2Layer2And3Bitrates[bitrateIndex];
+    }
+
+    return std::nullopt;
+}
+
+std::optional<int> mp3SampleRateHz(int versionBits, int sampleRateIndex)
+{
+    static constexpr int kMpeg1SampleRates[] = {44100, 48000, 32000};
+    static constexpr int kMpeg2SampleRates[] = {22050, 24000, 16000};
+    static constexpr int kMpeg25SampleRates[] = {11025, 12000, 8000};
+
+    if (sampleRateIndex < 0 || sampleRateIndex >= 3) {
+        return std::nullopt;
+    }
+
+    if (versionBits == 3) {
+        return kMpeg1SampleRates[sampleRateIndex];
+    }
+    if (versionBits == 2) {
+        return kMpeg2SampleRates[sampleRateIndex];
+    }
+    if (versionBits == 0) {
+        return kMpeg25SampleRates[sampleRateIndex];
+    }
+
+    return std::nullopt;
+}
+
+int mp3SamplesPerFrame(int versionBits, int layerBits)
+{
+    if (layerBits == 3) {
+        return 384;
+    }
+
+    if (layerBits == 2) {
+        return 1152;
+    }
+
+    if (layerBits == 1) {
+        return versionBits == 3 ? 1152 : 576;
+    }
+
+    return 0;
+}
+
+int mp3FrameLengthBytes(int versionBits, int layerBits, int bitrateKbps, int sampleRateHz, int padding)
+{
+    const int bitrateBps = bitrateKbps * 1000;
+    if (layerBits == 3) {
+        return ((12 * bitrateBps) / sampleRateHz + padding) * 4;
+    }
+
+    if (layerBits == 2) {
+        return (144 * bitrateBps) / sampleRateHz + padding;
+    }
+
+    if (layerBits == 1) {
+        const int coefficient = versionBits == 3 ? 144 : 72;
+        return (coefficient * bitrateBps) / sampleRateHz + padding;
+    }
+
+    return 0;
+}
+
+qint64 calculateMp3DurationMilliseconds(const QByteArray& audioBytes)
+{
+    constexpr int kMp3HeaderSize = 4;
+    qint64 totalSamples = 0;
+    int sampleRateHz = 0;
+    int offset = readId3v2TagSize(audioBytes);
+
+    while (offset + kMp3HeaderSize <= audioBytes.size()) {
+        const quint32 header =
+            (static_cast<quint32>(static_cast<unsigned char>(audioBytes.at(offset))) << 24) |
+            (static_cast<quint32>(static_cast<unsigned char>(audioBytes.at(offset + 1))) << 16) |
+            (static_cast<quint32>(static_cast<unsigned char>(audioBytes.at(offset + 2))) << 8) |
+            static_cast<quint32>(static_cast<unsigned char>(audioBytes.at(offset + 3)));
+
+        if ((header & 0xffe00000U) != 0xffe00000U) {
+            ++offset;
+            continue;
+        }
+
+        const int versionBits = static_cast<int>((header >> 19) & 0x3U);
+        const int layerBits = static_cast<int>((header >> 17) & 0x3U);
+        const int bitrateIndex = static_cast<int>((header >> 12) & 0xfU);
+        const int sampleRateIndex = static_cast<int>((header >> 10) & 0x3U);
+        const int padding = static_cast<int>((header >> 9) & 0x1U);
+
+        const std::optional<int> bitrateKbps = mp3BitrateKbps(versionBits, layerBits, bitrateIndex);
+        const std::optional<int> parsedSampleRateHz = mp3SampleRateHz(versionBits, sampleRateIndex);
+        const int samplesPerFrame = mp3SamplesPerFrame(versionBits, layerBits);
+
+        if (!bitrateKbps.has_value() || !parsedSampleRateHz.has_value() || samplesPerFrame <= 0) {
+            ++offset;
+            continue;
+        }
+
+        const int frameLength = mp3FrameLengthBytes(
+            versionBits,
+            layerBits,
+            bitrateKbps.value(),
+            parsedSampleRateHz.value(),
+            padding
+        );
+        if (frameLength <= kMp3HeaderSize || offset + frameLength > audioBytes.size()) {
+            break;
+        }
+
+        sampleRateHz = parsedSampleRateHz.value();
+        totalSamples += samplesPerFrame;
+        offset += frameLength;
+    }
+
+    if (totalSamples <= 0 || sampleRateHz <= 0) {
+        return kInvalidAudioDurationMs;
+    }
+
+    return (totalSamples * kMillisecondsPerSecond + sampleRateHz / 2) / sampleRateHz;
+}
+
+qint64 calculateRawAudioDurationMilliseconds(const QByteArray& audioBytes, int sampleRateHz, int bytesPerSample)
+{
+    if (sampleRateHz <= 0 || bytesPerSample <= 0 || audioBytes.isEmpty()) {
+        return kInvalidAudioDurationMs;
+    }
+
+    const qint64 byteRate = static_cast<qint64>(sampleRateHz) * bytesPerSample;
+    return (static_cast<qint64>(audioBytes.size()) * kMillisecondsPerSecond + byteRate / 2) / byteRate;
+}
+
+qint64 calculateAudioDurationMilliseconds(const QByteArray& audioBytes, const QString& outputFormat)
+{
+    if (audioBytes.isEmpty()) {
+        return kInvalidAudioDurationMs;
+    }
+
+    if (outputFormat.startsWith("mp3", Qt::CaseInsensitive)) {
+        return calculateMp3DurationMilliseconds(audioBytes);
+    }
+
+    if (outputFormat == "pcm_44100") {
+        constexpr int kPcm44100SampleRateHz = 44100;
+        constexpr int kPcm16BytesPerSample = 2;
+        return calculateRawAudioDurationMilliseconds(audioBytes, kPcm44100SampleRateHz, kPcm16BytesPerSample);
+    }
+
+    if (outputFormat == "ulaw_8000") {
+        constexpr int kUlaw8000SampleRateHz = 8000;
+        constexpr int kUlawBytesPerSample = 1;
+        return calculateRawAudioDurationMilliseconds(audioBytes, kUlaw8000SampleRateHz, kUlawBytesPerSample);
+    }
+
+    return kInvalidAudioDurationMs;
+}
+
+QString formatSrtTime(qint64 totalMilliseconds)
+{
+    totalMilliseconds %= kMillisecondsPerDay;
+    if (totalMilliseconds < 0) {
+        totalMilliseconds += kMillisecondsPerDay;
+    }
+
+    const qint64 hours = totalMilliseconds / (kMillisecondsPerSecond * kSecondsPerMinute * kMinutesPerHour);
+    totalMilliseconds %= kMillisecondsPerSecond * kSecondsPerMinute * kMinutesPerHour;
+
+    const qint64 minutes = totalMilliseconds / (kMillisecondsPerSecond * kSecondsPerMinute);
+    totalMilliseconds %= kMillisecondsPerSecond * kSecondsPerMinute;
+
+    const qint64 seconds = totalMilliseconds / kMillisecondsPerSecond;
+    const qint64 milliseconds = totalMilliseconds % kMillisecondsPerSecond;
+
+    return QString("%1:%2:%3,%4")
+        .arg(hours, 2, 10, QChar('0'))
+        .arg(minutes, 2, 10, QChar('0'))
+        .arg(seconds, 2, 10, QChar('0'))
+        .arg(milliseconds, 3, 10, QChar('0'));
+}
+
+QString addDurationToSrtStartTime(const QString& startTime, qint64 durationMilliseconds)
+{
+    const QTime start = QTime::fromString(startTime, "HH:mm:ss,zzz");
+    if (!start.isValid() || durationMilliseconds < 0) {
+        return QString();
+    }
+
+    const qint64 startMilliseconds =
+        static_cast<qint64>(start.hour()) * kMillisecondsPerSecond * kSecondsPerMinute * kMinutesPerHour +
+        static_cast<qint64>(start.minute()) * kMillisecondsPerSecond * kSecondsPerMinute +
+        static_cast<qint64>(start.second()) * kMillisecondsPerSecond +
+        start.msec();
+    return formatSrtTime(startMilliseconds + durationMilliseconds);
 }
 }
 
@@ -326,9 +757,9 @@ void MainWindow::buildTopBar()
     connect(redoAction, &QAction::triggered, this, &MainWindow::redo);
 
     auto* toolsMenu = menuBar->addMenu("Tools");
+    auto* settings = toolsMenu->addAction("Settings");
+    connect(settings, &QAction::triggered, this, &MainWindow::openTextToSpeechOption);
     auto* ttsMenu = toolsMenu->addMenu("Text to speech");
-    auto* ttsOption = ttsMenu->addAction("Options");
-    connect(ttsOption, &QAction::triggered, this, &MainWindow::openTextToSpeechOption);
     auto* ttsConvert = ttsMenu->addAction("Convert");
     connect(ttsConvert, &QAction::triggered, this, &MainWindow::convertToSpeech);
     auto* ttsConvertAll = ttsMenu->addAction("Convert all");
@@ -339,6 +770,11 @@ void MainWindow::buildTopBar()
         AboutWindow _aboutWindow(this);
         _aboutWindow.exec();
     });
+    auto* langMenu = toolsMenu->addMenu("Language");
+    auto* translateToAction = langMenu->addAction("Translate to");
+    connect(translateToAction, &QAction::triggered, this, &MainWindow::translateTo);
+    auto* translateAllToAction = langMenu->addAction("Translate all to");
+    connect(translateAllToAction, &QAction::triggered, this, &MainWindow::translateAllTo);
 
     auto* titleMenuContainer = new QWidget(topBar);
     auto* titleMenuLayout = new QHBoxLayout(titleMenuContainer);
@@ -932,7 +1368,7 @@ void MainWindow::redo()
 
 void MainWindow::openTextToSpeechOption()
 {
-    TTSWindow ttsWindow(this);
+    SettingWindow ttsWindow(this);
     ttsWindow.exec();
 }
 
@@ -980,7 +1416,7 @@ void MainWindow::convertRowsToSpeech(const QVector<int>& rowIndexes)
             "Please configure the ElevenLabs API key, voice, and output folder before converting. Use Load Voices, select a voice, then save settings."
         );
 
-        TTSWindow ttsWindow(this);
+        SettingWindow ttsWindow(this);
         if (ttsWindow.exec() != QDialog::Accepted) {
             return;
         }
@@ -1009,6 +1445,7 @@ void MainWindow::convertRowsToSpeech(const QVector<int>& rowIndexes)
     ElevenLabsClient client(settings.apiKey.toStdString());
     int convertedCount = 0;
     int skippedCount = 0;
+    bool undoStateSaved = false;
 
     for (int index = 0; index < rowIndexes.size(); ++index) {
         const int rowIndex = rowIndexes.at(index);
@@ -1102,6 +1539,36 @@ void MainWindow::convertRowsToSpeech(const QVector<int>& rowIndexes)
                 continue;
             }
 
+            const QByteArray audioBytes(response.body.data(), static_cast<qsizetype>(response.body.size()));
+            const qint64 durationMilliseconds = calculateAudioDurationMilliseconds(audioBytes, settings.outputFormat);
+            const QString updatedEndTime = addDurationToSrtStartTime(subtitle.startTime, durationMilliseconds);
+            if (durationMilliseconds < 0 || updatedEndTime.isEmpty()) {
+                QMessageBox::warning(
+                    this,
+                    "Text to speech",
+                    QString("Created audio for line %1, but could not calculate its duration.").arg(subtitle.index)
+                );
+                ++skippedCount;
+                continue;
+            }
+
+            if (!undoStateSaved) {
+                saveUndoState();
+                undoStateSaved = true;
+            }
+
+            SubtitleRow& updatedSubtitle = rows_[rowIndex];
+            updatedSubtitle.duration = formatSrtTime(durationMilliseconds);
+            updatedSubtitle.endTime = updatedEndTime;
+
+            if (subtitleTable_->item(rowIndex, kColumnEndTime)) {
+                subtitleTable_->item(rowIndex, kColumnEndTime)->setText(updatedSubtitle.endTime);
+            }
+            if (subtitleTable_->currentRow() == rowIndex) {
+                endTimeEdit_->setText(updatedSubtitle.endTime);
+                durationEdit_->setText(updatedSubtitle.duration);
+            }
+
             ++convertedCount;
         } catch (const std::exception& error) {
             QMessageBox::critical(
@@ -1130,5 +1597,227 @@ void MainWindow::convertRowsToSpeech(const QVector<int>& rowIndexes)
         this,
         "Text to speech",
         QString("Converted %1 subtitle line(s). Skipped %2.").arg(convertedCount).arg(skippedCount)
+    );
+}
+
+void MainWindow::translateTo()
+{
+    const int currentRow = subtitleTable_->currentRow();
+    if (currentRow < 0 || currentRow >= rows_.size()) {
+        QMessageBox::warning(this, "Translate", "Please select a subtitle line to translate.");
+        return;
+    }
+
+    updateCurrentRowFromLineProperties();
+
+    const std::optional<TranslationLanguageSelection> languages = requestTranslationLanguages(*this);
+    if (!languages.has_value()) {
+        return;
+    }
+
+    OpenAITranslationSettings settings = readOpenAITranslationSettings();
+    if (settings.apiKey.isEmpty()) {
+        QMessageBox::warning(
+            this,
+            "Translate",
+            "Please configure the OpenAI API key before translating."
+        );
+
+        SettingWindow settingsWindow(this);
+        if (settingsWindow.exec() != QDialog::Accepted) {
+            return;
+        }
+
+        settings = readOpenAITranslationSettings();
+        if (settings.apiKey.isEmpty()) {
+            QMessageBox::warning(this, "Translate", "The OpenAI API key is required.");
+            return;
+        }
+    }
+
+    const QString content = rows_.at(currentRow).text.trimmed();
+    if (content.isEmpty()) {
+        QMessageBox::warning(this, "Translate", "Selected subtitle line is empty.");
+        return;
+    }
+
+    statusLeftLabel_->setText(QString("Translating line %1...").arg(rows_.at(currentRow).index));
+    QApplication::processEvents();
+
+    try {
+        OpenAITranslatorClient client(settings.apiKey.toStdString());
+        const OpenAITranslatorRequest request = createOpenAITranslatorRequest(languages.value(), content);
+        const OpenAITranslatorResponse response = client.translate(request);
+
+        if (response.status_code < 200 || response.status_code >= 300) {
+            const QString errorBody = QString::fromUtf8(
+                response.body.data(),
+                static_cast<qsizetype>(response.body.size())
+            ).left(500);
+            QMessageBox::warning(
+                this,
+                "Translate",
+                QString("Translate line %1 failed. HTTP status: %2\n%3")
+                    .arg(rows_.at(currentRow).index)
+                    .arg(response.status_code)
+                    .arg(errorBody)
+            );
+            statusLeftLabel_->setText("Translate failed.");
+            return;
+        }
+
+        const QString responseBody = QString::fromUtf8(
+            response.body.data(),
+            static_cast<qsizetype>(response.body.size())
+        );
+        const std::optional<QString> translatedText = extractTranslatedTextFromResponse(responseBody);
+        if (!translatedText.has_value() || translatedText.value().trimmed().isEmpty()) {
+            QMessageBox::warning(this, "Translate", "OpenAI response does not contain translated_text.");
+            statusLeftLabel_->setText("Translate failed.");
+            return;
+        }
+
+        saveUndoState();
+
+        rows_[currentRow].text = translatedText.value();
+        if (subtitleTable_->item(currentRow, kColumnSubtitleText) != nullptr) {
+            subtitleTable_->item(currentRow, kColumnSubtitleText)->setText(rows_[currentRow].text);
+        }
+        subtitleTextEdit_->setPlainText(rows_[currentRow].text);
+        statusLeftLabel_->setText(QString("Translated line %1.").arg(rows_.at(currentRow).index));
+    } catch (const std::exception& error) {
+        QMessageBox::critical(
+            this,
+            "Translate",
+            QString("Translate line %1 failed: %2")
+                .arg(rows_.at(currentRow).index)
+                .arg(QString::fromUtf8(error.what()))
+        );
+        statusLeftLabel_->setText("Translate failed.");
+    }
+}
+
+void MainWindow::translateAllTo()
+{
+    if (rows_.isEmpty()) {
+        QMessageBox::warning(this, "Translate", "There are no subtitle lines to translate.");
+        return;
+    }
+
+    updateCurrentRowFromLineProperties();
+
+    const std::optional<TranslationLanguageSelection> languages = requestTranslationLanguages(*this);
+    if (!languages.has_value()) {
+        return;
+    }
+
+    OpenAITranslationSettings settings = readOpenAITranslationSettings();
+    if (settings.apiKey.isEmpty()) {
+        QMessageBox::warning(
+            this,
+            "Translate",
+            "Please configure the OpenAI API key before translating."
+        );
+
+        SettingWindow settingsWindow(this);
+        if (settingsWindow.exec() != QDialog::Accepted) {
+            return;
+        }
+
+        settings = readOpenAITranslationSettings();
+        if (settings.apiKey.isEmpty()) {
+            QMessageBox::warning(this, "Translate", "The OpenAI API key is required.");
+            return;
+        }
+    }
+
+    OpenAITranslatorClient client(settings.apiKey.toStdString());
+    int translatedCount = 0;
+    int skippedCount = 0;
+    bool undoStateSaved = false;
+
+    for (int rowIndex = 0; rowIndex < rows_.size(); ++rowIndex) {
+        const QString content = rows_.at(rowIndex).text.trimmed();
+        if (content.isEmpty()) {
+            ++skippedCount;
+            continue;
+        }
+
+        statusLeftLabel_->setText(QString("Translating line %1...").arg(rows_.at(rowIndex).index));
+        QApplication::processEvents();
+
+        try {
+            const OpenAITranslatorRequest request = createOpenAITranslatorRequest(languages.value(), content);
+            const OpenAITranslatorResponse response = client.translate(request);
+
+            if (response.status_code < 200 || response.status_code >= 300) {
+                const QString errorBody = QString::fromUtf8(
+                    response.body.data(),
+                    static_cast<qsizetype>(response.body.size())
+                ).left(500);
+                QMessageBox::warning(
+                    this,
+                    "Translate",
+                    QString("Translate line %1 failed. HTTP status: %2\n%3")
+                        .arg(rows_.at(rowIndex).index)
+                        .arg(response.status_code)
+                        .arg(errorBody)
+                );
+                ++skippedCount;
+                continue;
+            }
+
+            const QString responseBody = QString::fromUtf8(
+                response.body.data(),
+                static_cast<qsizetype>(response.body.size())
+            );
+            const std::optional<QString> translatedText = extractTranslatedTextFromResponse(responseBody);
+            if (!translatedText.has_value() || translatedText.value().trimmed().isEmpty()) {
+                QMessageBox::warning(
+                    this,
+                    "Translate",
+                    QString("Line %1 response does not contain translated_text.").arg(rows_.at(rowIndex).index)
+                );
+                ++skippedCount;
+                continue;
+            }
+
+            if (!undoStateSaved) {
+                saveUndoState();
+                undoStateSaved = true;
+            }
+
+            rows_[rowIndex].text = translatedText.value();
+            if (subtitleTable_->item(rowIndex, kColumnSubtitleText) != nullptr) {
+                subtitleTable_->item(rowIndex, kColumnSubtitleText)->setText(rows_[rowIndex].text);
+            }
+            if (subtitleTable_->currentRow() == rowIndex) {
+                subtitleTextEdit_->setPlainText(rows_[rowIndex].text);
+            }
+
+            ++translatedCount;
+        } catch (const std::exception& error) {
+            QMessageBox::critical(
+                this,
+                "Translate",
+                QString("Translate line %1 failed: %2")
+                    .arg(rows_.at(rowIndex).index)
+                    .arg(QString::fromUtf8(error.what()))
+            );
+            ++skippedCount;
+            continue;
+        }
+    }
+
+    statusLeftLabel_->setText(
+        QString("Translate complete. Translated %1, skipped %2.")
+            .arg(translatedCount)
+            .arg(skippedCount)
+    );
+
+    QMessageBox::information(
+        this,
+        "Translate",
+        QString("Translated %1 subtitle line(s). Skipped %2.").arg(translatedCount).arg(skippedCount)
     );
 }

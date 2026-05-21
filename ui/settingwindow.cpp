@@ -1,4 +1,4 @@
-#include "ttswindow.h"
+#include "settingwindow.h"
 
 #include "elevenlabs.h"
 
@@ -28,11 +28,13 @@ constexpr int kButtonHeight = 28;
 constexpr int kSliderMinimum = 0;
 constexpr int kSliderMaximum = 100;
 
-const char* kWindowTitle = "Text To Speech Settings";
+const char* kWindowTitle = "Settings";
 const char* kEmptyText = "";
 
 const char* kSettingsGroup = "tts/elevenlabs";
 const char* kApiKeySetting = "apiKey";
+const char* kOpenAISettingsGroup = "translator/openai";
+const char* kOpenAIApiKeySetting = "apiKey";
 const char* kModelSetting = "model";
 const char* kVoiceSetting = "voice";
 const char* kVoiceIdSetting = "voiceId";
@@ -122,7 +124,7 @@ QString currentVoiceId(const QComboBox& comboBox)
 }
 }
 
-TTSWindow::TTSWindow(QWidget* parent)
+SettingWindow::SettingWindow(QWidget* parent)
     : QDialog(parent)
 {
     buildUi();
@@ -130,7 +132,7 @@ TTSWindow::TTSWindow(QWidget* parent)
     applyStyle();
 }
 
-bool TTSWindow::eventFilter(QObject* watched, QEvent* event)
+bool SettingWindow::eventFilter(QObject* watched, QEvent* event)
 {
     if (watched != titleBar_) {
         return QDialog::eventFilter(watched, event);
@@ -160,7 +162,7 @@ bool TTSWindow::eventFilter(QObject* watched, QEvent* event)
     return QDialog::eventFilter(watched, event);
 }
 
-void TTSWindow::buildUi()
+void SettingWindow::buildUi()
 {
     setObjectName("ttsWindow");
     setWindowTitle(kWindowTitle);
@@ -178,7 +180,7 @@ void TTSWindow::buildUi()
     buildActionBar(*rootLayout);
 }
 
-void TTSWindow::buildTitleBar(QVBoxLayout& rootLayout)
+void SettingWindow::buildTitleBar(QVBoxLayout& rootLayout)
 {
     titleBar_ = new QWidget(this);
     titleBar_->setObjectName("ttsTitleBar");
@@ -201,13 +203,13 @@ void TTSWindow::buildTitleBar(QVBoxLayout& rootLayout)
     auto* closeButton = new QPushButton("×", titleBar_);
     closeButton->setObjectName("ttsCloseButton");
     closeButton->setFixedSize(28, 24);
-    connect(closeButton, &QPushButton::clicked, this, &TTSWindow::reject);
+    connect(closeButton, &QPushButton::clicked, this, &SettingWindow::reject);
     titleLayout->addWidget(closeButton);
 
     rootLayout.addWidget(titleBar_);
 }
 
-void TTSWindow::buildContent(QVBoxLayout& rootLayout)
+void SettingWindow::buildContent(QVBoxLayout& rootLayout)
 {
     auto* content = new QWidget(this);
     content->setObjectName("ttsContent");
@@ -222,53 +224,52 @@ void TTSWindow::buildContent(QVBoxLayout& rootLayout)
     rootLayout.addWidget(content, 1);
 }
 
-void TTSWindow::buildSidebar(QWidget& parent, QHBoxLayout& contentLayout)
+void SettingWindow::buildSidebar(QWidget& parent, QHBoxLayout& contentLayout)
 {
     auto* sidebar = new QListWidget(&parent);
     sidebar->setObjectName("ttsSidebar");
     sidebar->setFixedWidth(kSidebarWidth);
     sidebar->setFocusPolicy(Qt::NoFocus);
     sidebar->addItem("ElevenLabs API");
+    sidebar->addItem("OpenAI API");
     sidebar->setCurrentRow(0);
+    connect(sidebar, &QListWidget::currentRowChanged, this, [this](int row) {
+        if (settingsStack_ == nullptr || row < 0 || row >= settingsStack_->count()) {
+            return;
+        }
+
+        settingsStack_->setCurrentIndex(row);
+    });
 
     contentLayout.addWidget(sidebar);
 }
 
-void TTSWindow::buildSettingsPanel(QWidget& parent, QHBoxLayout& contentLayout)
+void SettingWindow::buildSettingsPanel(QWidget& parent, QHBoxLayout& contentLayout)
 {
-    auto* scrollArea = new QScrollArea(&parent);
-    scrollArea->setObjectName("ttsSettingsScrollArea");
-    scrollArea->setWidgetResizable(true);
-    scrollArea->setFrameShape(QFrame::NoFrame);
-
-    auto* panel = new QWidget(scrollArea);
-    panel->setObjectName("ttsSettingsPanel");
-
-    auto* panelLayout = new QVBoxLayout(panel);
-    panelLayout->setContentsMargins(16, 16, 16, 16);
-    panelLayout->setSpacing(12);
-
-    auto* formLayout = new QGridLayout();
-    formLayout->setContentsMargins(0, 0, 0, 0);
-    formLayout->setHorizontalSpacing(16);
-    formLayout->setVerticalSpacing(12);
-    formLayout->setColumnMinimumWidth(0, kFormLabelWidth);
-    formLayout->setColumnStretch(1, 1);
+    settingsStack_ = new QStackedWidget(&parent);
+    settingsStack_->setObjectName("ttsSettingsStack");
 
     int row = 0;
-    addElevenLabsSection(*formLayout, *panel, row);
-    addVoiceOverridesSection(*formLayout, *panel, row);
-    addProcessingSection(*formLayout, *panel, row);
-    addPreviewSection(*formLayout, *panel, row);
+    QGridLayout* formLayout = nullptr;
+    auto* elevenLabsPage = createSettingsScrollPage(parent, formLayout);
+    auto* elevenLabsPanel = elevenLabsPage->widget();
+    addElevenLabsSection(*formLayout, *elevenLabsPanel, row);
+    addVoiceOverridesSection(*formLayout, *elevenLabsPanel, row);
+    addProcessingSection(*formLayout, *elevenLabsPanel, row);
+    addPreviewSection(*formLayout, *elevenLabsPanel, row);
+    settingsStack_->addWidget(elevenLabsPage);
 
-    panelLayout->addLayout(formLayout);
-    panelLayout->addStretch();
+    row = 0;
+    formLayout = nullptr;
+    auto* openAiPage = createSettingsScrollPage(parent, formLayout);
+    auto* openAiPanel = openAiPage->widget();
+    addOpenAISection(*formLayout, *openAiPanel, row);
+    settingsStack_->addWidget(openAiPage);
 
-    scrollArea->setWidget(panel);
-    contentLayout.addWidget(scrollArea, 1);
+    contentLayout.addWidget(settingsStack_, 1);
 }
 
-void TTSWindow::buildActionBar(QVBoxLayout& rootLayout)
+void SettingWindow::buildActionBar(QVBoxLayout& rootLayout)
 {
     auto* actionBar = new QWidget(this);
     actionBar->setObjectName("ttsActionBar");
@@ -283,9 +284,9 @@ void TTSWindow::buildActionBar(QVBoxLayout& rootLayout)
     auto* cancelButton = createButton("Cancel", *actionBar);
     auto* applyButton = createButton("Apply", *actionBar);
 
-    connect(saveButton, &QPushButton::clicked, this, &TTSWindow::saveAndAccept);
-    connect(cancelButton, &QPushButton::clicked, this, &TTSWindow::reject);
-    connect(applyButton, &QPushButton::clicked, this, &TTSWindow::saveSettings);
+    connect(saveButton, &QPushButton::clicked, this, &SettingWindow::saveAndAccept);
+    connect(cancelButton, &QPushButton::clicked, this, &SettingWindow::reject);
+    connect(applyButton, &QPushButton::clicked, this, &SettingWindow::saveSettings);
 
     actionLayout->addWidget(saveButton);
     actionLayout->addWidget(cancelButton);
@@ -294,7 +295,7 @@ void TTSWindow::buildActionBar(QVBoxLayout& rootLayout)
     rootLayout.addWidget(actionBar);
 }
 
-void TTSWindow::applyStyle()
+void SettingWindow::applyStyle()
 {
     QFile file(":/css/ttswindow.qss");
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -305,7 +306,7 @@ void TTSWindow::applyStyle()
     setStyleSheet(stream.readAll());
 }
 
-void TTSWindow::loadSettings()
+void SettingWindow::loadSettings()
 {
     QSettings settings;
     settings.beginGroup(kSettingsGroup);
@@ -363,9 +364,16 @@ void TTSWindow::loadSettings()
     if (previewTextEdit_ != nullptr) {
         previewTextEdit_->setPlainText(settings.value(kPreviewTextSetting, kEmptyText).toString());
     }
+    settings.endGroup();
+
+    settings.beginGroup(kOpenAISettingsGroup);
+    if (openAiApiKeyEdit_ != nullptr) {
+        openAiApiKeyEdit_->setText(settings.value(kOpenAIApiKeySetting).toString());
+    }
+    settings.endGroup();
 }
 
-void TTSWindow::saveSettings() const
+void SettingWindow::saveSettings() const
 {
     QSettings settings;
     settings.beginGroup(kSettingsGroup);
@@ -422,9 +430,16 @@ void TTSWindow::saveSettings() const
     if (previewTextEdit_ != nullptr) {
         settings.setValue(kPreviewTextSetting, previewTextEdit_->toPlainText());
     }
+    settings.endGroup();
+
+    settings.beginGroup(kOpenAISettingsGroup);
+    if (openAiApiKeyEdit_ != nullptr) {
+        settings.setValue(kOpenAIApiKeySetting, openAiApiKeyEdit_->text());
+    }
+    settings.endGroup();
 }
 
-void TTSWindow::addElevenLabsSection(QGridLayout& formLayout, QWidget& parent, int& row)
+void SettingWindow::addElevenLabsSection(QGridLayout& formLayout, QWidget& parent, int& row)
 {
     auto* title = createSectionTitle("ElevenLabs API Settings", parent);
     formLayout.addWidget(title, row, 0, 1, 2);
@@ -442,7 +457,7 @@ void TTSWindow::addElevenLabsSection(QGridLayout& formLayout, QWidget& parent, i
     apiKeyLayout->setSpacing(8);
     apiKeyLayout->addWidget(apiKeyEdit_, 1);
     apiKeyLayout->addWidget(loadModelsButton);
-    connect(loadModelsButton, &QPushButton::clicked, this, &TTSWindow::testElevenLabsConnection);
+    connect(loadModelsButton, &QPushButton::clicked, this, &SettingWindow::testElevenLabsConnection);
     formLayout.addWidget(createFormLabel("API Key:", parent), row, 0);
     formLayout.addWidget(apiKeyRow, row, 1);
     ++row;
@@ -460,7 +475,7 @@ void TTSWindow::addElevenLabsSection(QGridLayout& formLayout, QWidget& parent, i
     voiceLayout->setSpacing(8);
     voiceLayout->addWidget(voiceComboBox_, 1);
     voiceLayout->addWidget(loadVoicesButton);
-    connect(loadVoicesButton, &QPushButton::clicked, this, &TTSWindow::loadElevenLabsVoices);
+    connect(loadVoicesButton, &QPushButton::clicked, this, &SettingWindow::loadElevenLabsVoices);
     formLayout.addWidget(createFormLabel("Voice:", parent), row, 0);
     formLayout.addWidget(voiceRow, row, 1);
     ++row;
@@ -476,7 +491,24 @@ void TTSWindow::addElevenLabsSection(QGridLayout& formLayout, QWidget& parent, i
     ++row;
 }
 
-void TTSWindow::addVoiceOverridesSection(QGridLayout& formLayout, QWidget& parent, int& row)
+void SettingWindow::addOpenAISection(QGridLayout& formLayout, QWidget& parent, int& row)
+{
+    auto* title = createSectionTitle("OpenAI API Settings", parent);
+    formLayout.addWidget(title, row, 0, 1, 2);
+    ++row;
+
+    auto* topSeparator = createSeparator(parent);
+    formLayout.addWidget(topSeparator, row, 0, 1, 2);
+    ++row;
+
+    openAiApiKeyEdit_ = createLineEdit(QString(), parent, QLineEdit::Password);
+    openAiApiKeyEdit_->setPlaceholderText("OpenAI API key");
+    formLayout.addWidget(createFormLabel("API Key:", parent), row, 0);
+    formLayout.addWidget(openAiApiKeyEdit_, row, 1);
+    ++row;
+}
+
+void SettingWindow::addVoiceOverridesSection(QGridLayout& formLayout, QWidget& parent, int& row)
 {
     formLayout.addWidget(createSeparator(parent), row, 0, 1, 2);
     ++row;
@@ -503,7 +535,7 @@ void TTSWindow::addVoiceOverridesSection(QGridLayout& formLayout, QWidget& paren
     ++row;
 }
 
-void TTSWindow::addProcessingSection(QGridLayout& formLayout, QWidget& parent, int& row)
+void SettingWindow::addProcessingSection(QGridLayout& formLayout, QWidget& parent, int& row)
 {
     formLayout.addWidget(createSeparator(parent), row, 0, 1, 2);
     ++row;
@@ -513,7 +545,7 @@ void TTSWindow::addProcessingSection(QGridLayout& formLayout, QWidget& parent, i
 
     outputFolderEdit_ = createLineEdit(kEmptyText, parent);
     auto* browseButton = createButton("Browse...", parent);
-    connect(browseButton, &QPushButton::clicked, this, &TTSWindow::browseOutputFolder);
+    connect(browseButton, &QPushButton::clicked, this, &SettingWindow::browseOutputFolder);
 
     auto* outputFolderRow = new QWidget(&parent);
     auto* outputFolderLayout = new QHBoxLayout(outputFolderRow);
@@ -555,7 +587,7 @@ void TTSWindow::addProcessingSection(QGridLayout& formLayout, QWidget& parent, i
     ++row;
 }
 
-void TTSWindow::addPreviewSection(QGridLayout& formLayout, QWidget& parent, int& row)
+void SettingWindow::addPreviewSection(QGridLayout& formLayout, QWidget& parent, int& row)
 {
     formLayout.addWidget(createSeparator(parent), row, 0, 1, 2);
     ++row;
@@ -578,7 +610,7 @@ void TTSWindow::addPreviewSection(QGridLayout& formLayout, QWidget& parent, int&
     ++row;
 }
 
-QLabel* TTSWindow::createFormLabel(const QString& text, QWidget& parent) const
+QLabel* SettingWindow::createFormLabel(const QString& text, QWidget& parent) const
 {
     auto* label = new QLabel(text, &parent);
     label->setObjectName("ttsFormLabel");
@@ -586,14 +618,14 @@ QLabel* TTSWindow::createFormLabel(const QString& text, QWidget& parent) const
     return label;
 }
 
-QLabel* TTSWindow::createSectionTitle(const QString& text, QWidget& parent) const
+QLabel* SettingWindow::createSectionTitle(const QString& text, QWidget& parent) const
 {
     auto* label = new QLabel(text, &parent);
     label->setObjectName("ttsSectionTitle");
     return label;
 }
 
-QFrame* TTSWindow::createSeparator(QWidget& parent) const
+QFrame* SettingWindow::createSeparator(QWidget& parent) const
 {
     auto* line = new QFrame(&parent);
     line->setObjectName("ttsSeparator");
@@ -602,7 +634,35 @@ QFrame* TTSWindow::createSeparator(QWidget& parent) const
     return line;
 }
 
-QLineEdit* TTSWindow::createLineEdit(const QString& text, QWidget& parent, QLineEdit::EchoMode echoMode) const
+QScrollArea* SettingWindow::createSettingsScrollPage(QWidget& parent, QGridLayout*& formLayout) const
+{
+    auto* scrollArea = new QScrollArea(&parent);
+    scrollArea->setObjectName("ttsSettingsScrollArea");
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setFrameShape(QFrame::NoFrame);
+
+    auto* panel = new QWidget(scrollArea);
+    panel->setObjectName("ttsSettingsPanel");
+
+    auto* panelLayout = new QVBoxLayout(panel);
+    panelLayout->setContentsMargins(16, 16, 16, 16);
+    panelLayout->setSpacing(12);
+
+    formLayout = new QGridLayout();
+    formLayout->setContentsMargins(0, 0, 0, 0);
+    formLayout->setHorizontalSpacing(16);
+    formLayout->setVerticalSpacing(12);
+    formLayout->setColumnMinimumWidth(0, kFormLabelWidth);
+    formLayout->setColumnStretch(1, 1);
+
+    panelLayout->addLayout(formLayout);
+    panelLayout->addStretch();
+    scrollArea->setWidget(panel);
+
+    return scrollArea;
+}
+
+QLineEdit* SettingWindow::createLineEdit(const QString& text, QWidget& parent, QLineEdit::EchoMode echoMode) const
 {
     auto* edit = new QLineEdit(text, &parent);
     edit->setObjectName("ttsLineEdit");
@@ -611,7 +671,7 @@ QLineEdit* TTSWindow::createLineEdit(const QString& text, QWidget& parent, QLine
     return edit;
 }
 
-QComboBox* TTSWindow::createComboBox(const QStringList& values, QWidget& parent) const
+QComboBox* SettingWindow::createComboBox(const QStringList& values, QWidget& parent) const
 {
     auto* comboBox = new QComboBox(&parent);
     comboBox->setObjectName("ttsComboBox");
@@ -620,7 +680,7 @@ QComboBox* TTSWindow::createComboBox(const QStringList& values, QWidget& parent)
     return comboBox;
 }
 
-QWidget* TTSWindow::createSliderRow(const QString& objectName, int initialValue, QWidget& parent, QSlider*& slider) const
+QWidget* SettingWindow::createSliderRow(const QString& objectName, int initialValue, QWidget& parent, QSlider*& slider) const
 {
     auto* container = new QWidget(&parent);
     auto* layout = new QHBoxLayout(container);
@@ -646,7 +706,7 @@ QWidget* TTSWindow::createSliderRow(const QString& objectName, int initialValue,
     return container;
 }
 
-QPushButton* TTSWindow::createButton(const QString& text, QWidget& parent) const
+QPushButton* SettingWindow::createButton(const QString& text, QWidget& parent) const
 {
     auto* button = new QPushButton(text, &parent);
     button->setObjectName("ttsButton");
@@ -655,7 +715,7 @@ QPushButton* TTSWindow::createButton(const QString& text, QWidget& parent) const
     return button;
 }
 
-QString TTSWindow::createFilePatternToolTip() const
+QString SettingWindow::createFilePatternToolTip() const
 {
     return QStringLiteral(
         "Available file pattern tokens:\n"
@@ -676,13 +736,13 @@ QString TTSWindow::createFilePatternToolTip() const
     );
 }
 
-void TTSWindow::saveAndAccept()
+void SettingWindow::saveAndAccept()
 {
     saveSettings();
     accept();
 }
 
-void TTSWindow::restoreComboBoxValue(QComboBox& comboBox, const QString& value) const
+void SettingWindow::restoreComboBoxValue(QComboBox& comboBox, const QString& value) const
 {
     const int itemDataIndex = comboBox.findData(value);
     if (itemDataIndex >= 0) {
@@ -702,7 +762,7 @@ void TTSWindow::restoreComboBoxValue(QComboBox& comboBox, const QString& value) 
     }
 }
 
-void TTSWindow::browseOutputFolder()
+void SettingWindow::browseOutputFolder()
 {
     if (outputFolderEdit_ == nullptr) {
         return;
@@ -719,7 +779,7 @@ void TTSWindow::browseOutputFolder()
     }
 }
 
-void TTSWindow::testElevenLabsConnection()
+void SettingWindow::testElevenLabsConnection()
 {
     if (apiKeyEdit_ == nullptr) {
         QMessageBox::warning(this, "ElevenLabs", "API key input is not available.");
@@ -771,7 +831,7 @@ void TTSWindow::testElevenLabsConnection()
     }
 }
 
-void TTSWindow::loadElevenLabsVoices()
+void SettingWindow::loadElevenLabsVoices()
 {
     if (apiKeyEdit_ == nullptr) {
         QMessageBox::warning(this, "ElevenLabs", "API key input is not available.");
