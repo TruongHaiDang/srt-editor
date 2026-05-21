@@ -2,5 +2,6 @@
     <qresource prefix="/">
         <file>css/mainwindow.qss</file>
         <file>css/aboutwindow.qss</file>
+        <file>css/ttswindow.qss</file>
     </qresource>
 </RCC>

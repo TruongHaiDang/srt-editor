@@ -1,3 +1,4 @@
+#include <QtCore/QCoreApplication>
 #include <QtWidgets/QApplication>
 #include <QtGui/QScreen>
 
@@ -6,6 +7,8 @@
 int main(int argc, char* argv[])
 {
     QApplication app(argc, argv);
+    QCoreApplication::setOrganizationName("SubtitleEditPro");
+    QCoreApplication::setApplicationName("SubtitleEdit Pro");
 
     MainWindow window;
 

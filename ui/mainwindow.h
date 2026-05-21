@@ -29,6 +29,7 @@
 #include <QTime>
 
 #include "aboutwindow.h"
+#include "settingwindow.h"
 
 class QAction;
 class QLabel;
@@ -63,6 +64,7 @@ private:
     void buildStatusBar();
 
     QToolButton* createToolbarButton(const QString& text, const QString& tooltip);
+    QPushButton* createPanelButton(const QString& text, QWidget& parent);
     QLabel* createPanelLabel(const QString& text);
     QLineEdit* createTimeEditor(const QString& text, bool readOnly = false);
     QString calculateDuration(const QString& startTime, const QString& endTime);
@@ -83,6 +85,14 @@ private:
     void delLine();
     void undo();
     void redo();
+
+    void openTextToSpeechOption();
+    void convertToSpeech();
+    void convertAllToSpeech();
+    void convertRowsToSpeech(const QVector<int>& rowIndexes);
+
+    void translateTo();
+    void translateAllTo();
 
 private:
     QWidget* centralContainer_ = nullptr;

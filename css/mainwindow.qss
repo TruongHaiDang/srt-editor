@@ -14,8 +14,7 @@ QLabel#appTitle {
     font-size: 12px;
     font-weight: 700;
     color: #202020;
-    padding-left: 8px;
-    padding-right: 8px;
+    padding: 0 8px;
 }
 
 /* Menu bar mới */
@@ -24,6 +23,7 @@ QMenuBar#topMenuBar {
     color: #303030;
     border: none;
     font-size: 12px;
+    padding: 0;
 }
 
 QMenuBar#topMenuBar::item {
@@ -153,6 +153,26 @@ QLineEdit#readonlyTimeEditor {
     color: #b8b8b8;
     padding: 6px 8px;
     font-size: 13px;
+}
+
+QPushButton#propertiesActionButton {
+    background: #ffffff;
+    border: 1px solid #b7b7b7;
+    color: #1a1c1c;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 0 12px;
+    text-align: center;
+}
+
+QPushButton#propertiesActionButton:hover {
+    background: #eaf3ff;
+    border-color: #0078d4;
+}
+
+QPushButton#propertiesActionButton:pressed {
+    background: #d3e3ff;
+    border-color: #005a9e;
 }
 
 QStatusBar#statusBar {
