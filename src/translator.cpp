@@ -8,7 +8,7 @@ constexpr const char* kJsonContentTypeHeader = "Content-Type: application/json";
 constexpr const char* kAuthorizationHeaderPrefix = "Authorization: Bearer ";
 constexpr const char* kResponsesPath = "/v1/responses";
 constexpr const char* kPromptId = "pmpt_6a0f01bb349481979917ee0c1d43fe4b0952c8d49f597498";
-constexpr const char* kPromptVersion = "1";
+constexpr const char* kPromptVersion = "3";
 
 size_t writeResponseCallback(char* contents, size_t size, size_t nmemb, void* user_data)
 {
