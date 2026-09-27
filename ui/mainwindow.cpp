@@ -2,6 +2,7 @@
 #include "aboutwindow.h"
 #include "elevenlabs.h"
 #include "translator.h"
+#include "zalo.h"
 
 #include <QtCore/QDir>
 #include <QtCore/QDateTime>
@@ -29,6 +30,8 @@
 #include <qstringconverter_base.h>
 
 #include <exception>
+#include <limits>
+#include <memory>
 #include <optional>
 #include <string>
 
@@ -47,6 +50,15 @@ constexpr int kColumnSubtitleText = 3;
 const char* kAppTitle = "SubtitleEdit Free";
 const char* kSettingsGroup = "tts/elevenlabs";
 const char* kApiKeySetting = "apiKey";
+const char* kProviderSettingsGroup = "tts";
+const char* kProviderSetting = "provider";
+const char* kElevenLabsProvider = "elevenlabs";
+const char* kZaloProvider = "zalo";
+const char* kZaloSettingsGroup = "tts/zalo";
+const char* kZaloApiKeySetting = "apiKey";
+const char* kZaloSpeakerIdSetting = "speakerId";
+const char* kZaloSpeedSetting = "speed";
+const char* kZaloOutputFormatSetting = "outputFormat";
 const char* kOpenAISettingsGroup = "translator/openai";
 const char* kOpenAIApiKeySetting = "apiKey";
 const char* kModelSetting = "model";
@@ -71,6 +83,16 @@ constexpr int kDefaultStyle = 0;
 constexpr bool kDefaultSpeakerBoost = true;
 constexpr int kDefaultMaxCharsPerRequest = 5000;
 constexpr int kDefaultDelayMs = 250;
+constexpr int kDefaultZaloSpeakerId = 1;
+constexpr int kDefaultZaloSpeed = 100;
+constexpr int kZaloSpeedDivisor = 100;
+constexpr int kZaloWavEncoding = 0;
+
+enum class TextToSpeechProvider
+{
+    ElevenLabs,
+    Zalo,
+};
 constexpr double kSliderValueDivisor = 100.0;
 constexpr qint64 kInvalidAudioDurationMs = -1;
 constexpr int kMillisecondsPerSecond = 1000;
@@ -82,6 +104,7 @@ constexpr qint64 kMillisecondsPerDay =
 
 struct TextToSpeechSettings final
 {
+    TextToSpeechProvider provider = TextToSpeechProvider::ElevenLabs;
     QString apiKey;
     QString voiceId;
     QString modelId;
@@ -94,6 +117,9 @@ struct TextToSpeechSettings final
     int similarity = kDefaultSimilarity;
     int style = kDefaultStyle;
     bool speakerBoost = kDefaultSpeakerBoost;
+    int zaloSpeakerId = kDefaultZaloSpeakerId;
+    int zaloSpeed = kDefaultZaloSpeed;
+    int zaloEncoding = kZaloWavEncoding;
 };
 
 struct OpenAITranslationSettings final
@@ -150,6 +176,10 @@ QString fileExtensionForOutputFormat(const QString& outputFormat)
         return QStringLiteral("ulaw");
     }
 
+    if (outputFormat.startsWith("wav", Qt::CaseInsensitive)) {
+        return QStringLiteral("wav");
+    }
+
     return QStringLiteral("audio");
 }
 
@@ -172,9 +202,16 @@ bool isLikelyElevenLabsVoiceId(const QString& value)
 TextToSpeechSettings readTextToSpeechSettings()
 {
     QSettings settings;
+    settings.beginGroup(kProviderSettingsGroup);
+    const QString provider = settings.value(kProviderSetting, kElevenLabsProvider).toString();
+    settings.endGroup();
+
     settings.beginGroup(kSettingsGroup);
 
     TextToSpeechSettings result;
+    result.provider = provider == kZaloProvider
+        ? TextToSpeechProvider::Zalo
+        : TextToSpeechProvider::ElevenLabs;
     result.apiKey = settings.value(kApiKeySetting).toString().trimmed();
     result.voiceId = settings.value(kVoiceIdSetting).toString().trimmed();
     if (result.voiceId.isEmpty()) {
@@ -191,6 +228,7 @@ TextToSpeechSettings readTextToSpeechSettings()
     result.similarity = readSliderPercentSetting(settings, kSimilaritySetting, kDefaultSimilarity);
     result.style = readSliderPercentSetting(settings, kStyleSetting, kDefaultStyle);
     result.speakerBoost = settings.value(kSpeakerBoostSetting, kDefaultSpeakerBoost).toBool();
+    settings.endGroup();
 
     if (result.modelId.isEmpty()) {
         result.modelId = kDefaultModelId;
@@ -202,6 +240,21 @@ TextToSpeechSettings readTextToSpeechSettings()
 
     if (result.filePattern.isEmpty()) {
         result.filePattern = kDefaultFilePattern;
+    }
+
+    if (result.provider == TextToSpeechProvider::Zalo) {
+        settings.beginGroup(kZaloSettingsGroup);
+        result.apiKey = settings.value(kZaloApiKeySetting).toString().trimmed();
+        result.zaloSpeakerId = settings.value(kZaloSpeakerIdSetting, kDefaultZaloSpeakerId).toInt();
+        result.zaloSpeed = settings.value(kZaloSpeedSetting, kDefaultZaloSpeed).toInt();
+        result.zaloEncoding = settings.value(kZaloOutputFormatSetting, kZaloWavEncoding).toInt();
+        settings.endGroup();
+
+        result.voiceId = QString::number(result.zaloSpeakerId);
+        result.modelId = QStringLiteral("zalo-v1");
+        result.outputFormat = result.zaloEncoding == kZaloWavEncoding
+            ? QStringLiteral("wav")
+            : QStringLiteral("mp3");
     }
 
     return result;
@@ -369,6 +422,36 @@ ElevenLabsTextToSpeechRequest createTextToSpeechRequest(
     request.voice_settings.style = settings.style / kSliderValueDivisor;
     request.voice_settings.use_speaker_boost = settings.speakerBoost;
     return request;
+}
+
+std::optional<QString> extractZaloAudioUrl(const std::string& responseBody, QString& errorMessage)
+{
+    QJsonParseError parseError;
+    const QJsonDocument document = QJsonDocument::fromJson(
+        QByteArray(responseBody.data(), static_cast<qsizetype>(responseBody.size())),
+        &parseError
+    );
+    if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
+        errorMessage = "Zalo returned an invalid JSON response.";
+        return std::nullopt;
+    }
+
+    const QJsonObject response = document.object();
+    const int errorCode = response.value("error_code").toInt(-1);
+    if (errorCode != 0) {
+        const QString apiMessage = response.value("error_message").toString();
+        errorMessage = apiMessage.isEmpty()
+            ? QString("Zalo API error %1.").arg(errorCode)
+            : QString("Zalo API error %1: %2").arg(errorCode).arg(apiMessage);
+        return std::nullopt;
+    }
+
+    const QString audioUrl = response.value("data").toObject().value("url").toString().trimmed();
+    if (audioUrl.isEmpty()) {
+        errorMessage = "Zalo response does not contain an audio URL.";
+        return std::nullopt;
+    }
+    return audioUrl;
 }
 
 QString buildTextToSpeechOutputPath(
@@ -600,6 +683,49 @@ qint64 calculateRawAudioDurationMilliseconds(const QByteArray& audioBytes, int s
     return (static_cast<qint64>(audioBytes.size()) * kMillisecondsPerSecond + byteRate / 2) / byteRate;
 }
 
+quint32 readLittleEndian32(const QByteArray& bytes, int offset)
+{
+    if (offset < 0 || offset + 4 > bytes.size()) {
+        return 0;
+    }
+    return
+        static_cast<quint32>(static_cast<unsigned char>(bytes.at(offset))) |
+        (static_cast<quint32>(static_cast<unsigned char>(bytes.at(offset + 1))) << 8) |
+        (static_cast<quint32>(static_cast<unsigned char>(bytes.at(offset + 2))) << 16) |
+        (static_cast<quint32>(static_cast<unsigned char>(bytes.at(offset + 3))) << 24);
+}
+
+qint64 calculateWavDurationMilliseconds(const QByteArray& audioBytes)
+{
+    if (audioBytes.size() < 12 || audioBytes.left(4) != "RIFF" || audioBytes.mid(8, 4) != "WAVE") {
+        return kInvalidAudioDurationMs;
+    }
+
+    quint32 byteRate = 0;
+    quint32 dataSize = 0;
+    int offset = 12;
+    while (offset + 8 <= audioBytes.size()) {
+        const QByteArray chunkId = audioBytes.mid(offset, 4);
+        const quint32 chunkSize = readLittleEndian32(audioBytes, offset + 4);
+        const qint64 nextOffset = static_cast<qint64>(offset) + 8 + chunkSize + (chunkSize % 2);
+        if (nextOffset > audioBytes.size() || nextOffset > std::numeric_limits<int>::max()) {
+            return kInvalidAudioDurationMs;
+        }
+
+        if (chunkId == "fmt " && chunkSize >= 12) {
+            byteRate = readLittleEndian32(audioBytes, offset + 16);
+        } else if (chunkId == "data") {
+            dataSize = chunkSize;
+        }
+
+        if (byteRate > 0 && dataSize > 0) {
+            return (static_cast<qint64>(dataSize) * kMillisecondsPerSecond + byteRate / 2) / byteRate;
+        }
+        offset = static_cast<int>(nextOffset);
+    }
+    return kInvalidAudioDurationMs;
+}
+
 qint64 calculateAudioDurationMilliseconds(const QByteArray& audioBytes, const QString& outputFormat)
 {
     if (audioBytes.isEmpty()) {
@@ -608,6 +734,10 @@ qint64 calculateAudioDurationMilliseconds(const QByteArray& audioBytes, const QS
 
     if (outputFormat.startsWith("mp3", Qt::CaseInsensitive)) {
         return calculateMp3DurationMilliseconds(audioBytes);
+    }
+
+    if (outputFormat.startsWith("wav", Qt::CaseInsensitive)) {
+        return calculateWavDurationMilliseconds(audioBytes);
     }
 
     if (outputFormat == "pcm_44100") {
@@ -1409,11 +1539,23 @@ void MainWindow::convertRowsToSpeech(const QVector<int>& rowIndexes)
     updateCurrentRowFromLineProperties();
 
     TextToSpeechSettings settings = readTextToSpeechSettings();
-    if (settings.apiKey.isEmpty() || settings.voiceId.isEmpty() || settings.outputFolder.isEmpty()) {
+    const auto hasRequiredSettings = [](const TextToSpeechSettings& value) {
+        const bool voiceIsRequired = value.provider == TextToSpeechProvider::ElevenLabs;
+        return !value.apiKey.isEmpty() && !value.outputFolder.isEmpty() &&
+            (!voiceIsRequired || !value.voiceId.isEmpty());
+    };
+    const auto providerName = [](TextToSpeechProvider provider) {
+        return provider == TextToSpeechProvider::Zalo
+            ? QStringLiteral("Zalo AI")
+            : QStringLiteral("ElevenLabs");
+    };
+
+    if (!hasRequiredSettings(settings)) {
         QMessageBox::warning(
             this,
             "Text to speech",
-            "Please configure the ElevenLabs API key, voice, and output folder before converting. Use Load Voices, select a voice, then save settings."
+            QString("Please configure %1 and the shared audio output settings before converting.")
+                .arg(providerName(settings.provider))
         );
 
         SettingWindow ttsWindow(this);
@@ -1422,11 +1564,15 @@ void MainWindow::convertRowsToSpeech(const QVector<int>& rowIndexes)
         }
 
         settings = readTextToSpeechSettings();
-        if (settings.apiKey.isEmpty() || settings.voiceId.isEmpty() || settings.outputFolder.isEmpty()) {
+        if (!hasRequiredSettings(settings)) {
             QMessageBox::warning(
                 this,
                 "Text to speech",
-                "The ElevenLabs API key, voice ID, and output folder are required."
+                QString("%1 is not fully configured. An API key and output folder are required%2.")
+                    .arg(providerName(settings.provider))
+                    .arg(settings.provider == TextToSpeechProvider::ElevenLabs
+                        ? QStringLiteral(", together with a voice")
+                        : QString())
             );
             return;
         }
@@ -1442,7 +1588,13 @@ void MainWindow::convertRowsToSpeech(const QVector<int>& rowIndexes)
         return;
     }
 
-    ElevenLabsClient client(settings.apiKey.toStdString());
+    std::unique_ptr<ElevenLabsClient> elevenLabsClient;
+    std::unique_ptr<ZaloClient> zaloClient;
+    if (settings.provider == TextToSpeechProvider::Zalo) {
+        zaloClient = std::make_unique<ZaloClient>(settings.apiKey.toStdString());
+    } else {
+        elevenLabsClient = std::make_unique<ElevenLabsClient>(settings.apiKey.toStdString());
+    }
     int convertedCount = 0;
     int skippedCount = 0;
     bool undoStateSaved = false;
@@ -1479,36 +1631,95 @@ void MainWindow::convertRowsToSpeech(const QVector<int>& rowIndexes)
         );
 
         statusLeftLabel_->setText(
-            QString("Converting line %1 to speech...").arg(subtitle.index)
+            QString("Converting line %1 with %2...")
+                .arg(subtitle.index)
+                .arg(providerName(settings.provider))
         );
         QApplication::processEvents();
 
         try {
-            const ElevenLabsTextToSpeechRequest request = createTextToSpeechRequest(settings, text);
-            const ElevenLabsResponse response = client.textToSpeech(request);
+            std::string audioBody;
+            if (settings.provider == TextToSpeechProvider::Zalo) {
+                ZaloTextToSpeechRequest request;
+                request.text = text.toStdString();
+                request.speaker_id = settings.zaloSpeakerId;
+                request.speed = static_cast<double>(settings.zaloSpeed) / kZaloSpeedDivisor;
+                request.encoding = settings.zaloEncoding == kZaloWavEncoding
+                    ? ZaloAudioEncoding::Wav
+                    : ZaloAudioEncoding::Mp3;
 
-            if (response.status_code < 200 || response.status_code >= 300) {
-                const QString errorBody = QString::fromUtf8(
-                    response.body.data(),
-                    static_cast<qsizetype>(response.body.size())
-                ).left(500);
-                QMessageBox::warning(
-                    this,
-                    "Text to speech",
-                    QString("Convert line %1 failed. HTTP status: %2\n%3")
-                        .arg(subtitle.index)
-                        .arg(response.status_code)
-                        .arg(errorBody)
-                );
-                ++skippedCount;
-                continue;
+                const ZaloResponse synthesisResponse = zaloClient->synthesize(request);
+                if (synthesisResponse.status_code < 200 || synthesisResponse.status_code >= 300) {
+                    const QString errorBody = QString::fromUtf8(
+                        synthesisResponse.body.data(),
+                        static_cast<qsizetype>(synthesisResponse.body.size())
+                    ).left(500);
+                    QMessageBox::warning(
+                        this,
+                        "Text to speech",
+                        QString("Convert line %1 with Zalo AI failed. HTTP status: %2\n%3")
+                            .arg(subtitle.index)
+                            .arg(synthesisResponse.status_code)
+                            .arg(errorBody)
+                    );
+                    ++skippedCount;
+                    continue;
+                }
+
+                QString zaloError;
+                const std::optional<QString> audioUrl = extractZaloAudioUrl(synthesisResponse.body, zaloError);
+                if (!audioUrl.has_value()) {
+                    QMessageBox::warning(
+                        this,
+                        "Text to speech",
+                        QString("Convert line %1 failed: %2").arg(subtitle.index).arg(zaloError)
+                    );
+                    ++skippedCount;
+                    continue;
+                }
+
+                const ZaloResponse audioResponse = zaloClient->downloadAudio(audioUrl->toStdString());
+                if (audioResponse.status_code < 200 || audioResponse.status_code >= 300) {
+                    QMessageBox::warning(
+                        this,
+                        "Text to speech",
+                        QString("Download audio for line %1 failed. HTTP status: %2")
+                            .arg(subtitle.index)
+                            .arg(audioResponse.status_code)
+                    );
+                    ++skippedCount;
+                    continue;
+                }
+                audioBody = audioResponse.body;
+            } else {
+                const ElevenLabsTextToSpeechRequest request = createTextToSpeechRequest(settings, text);
+                const ElevenLabsResponse response = elevenLabsClient->textToSpeech(request);
+                if (response.status_code < 200 || response.status_code >= 300) {
+                    const QString errorBody = QString::fromUtf8(
+                        response.body.data(),
+                        static_cast<qsizetype>(response.body.size())
+                    ).left(500);
+                    QMessageBox::warning(
+                        this,
+                        "Text to speech",
+                        QString("Convert line %1 with ElevenLabs failed. HTTP status: %2\n%3")
+                            .arg(subtitle.index)
+                            .arg(response.status_code)
+                            .arg(errorBody)
+                    );
+                    ++skippedCount;
+                    continue;
+                }
+                audioBody = response.body;
             }
 
-            if (response.body.empty()) {
+            if (audioBody.empty()) {
                 QMessageBox::warning(
                     this,
                     "Text to speech",
-                    QString("Convert line %1 failed because ElevenLabs returned empty audio.").arg(subtitle.index)
+                    QString("Convert line %1 failed because %2 returned empty audio.")
+                        .arg(subtitle.index)
+                        .arg(providerName(settings.provider))
                 );
                 ++skippedCount;
                 continue;
@@ -1526,10 +1737,10 @@ void MainWindow::convertRowsToSpeech(const QVector<int>& rowIndexes)
             }
 
             const qint64 bytesWritten = outputFile.write(
-                response.body.data(),
-                static_cast<qint64>(response.body.size())
+                audioBody.data(),
+                static_cast<qint64>(audioBody.size())
             );
-            if (bytesWritten != static_cast<qint64>(response.body.size())) {
+            if (bytesWritten != static_cast<qint64>(audioBody.size())) {
                 QMessageBox::critical(
                     this,
                     "Text to speech",
@@ -1539,7 +1750,7 @@ void MainWindow::convertRowsToSpeech(const QVector<int>& rowIndexes)
                 continue;
             }
 
-            const QByteArray audioBytes(response.body.data(), static_cast<qsizetype>(response.body.size()));
+            const QByteArray audioBytes(audioBody.data(), static_cast<qsizetype>(audioBody.size()));
             const qint64 durationMilliseconds = calculateAudioDurationMilliseconds(audioBytes, settings.outputFormat);
             const QString updatedEndTime = addDurationToSrtStartTime(subtitle.startTime, durationMilliseconds);
             if (durationMilliseconds < 0 || updatedEndTime.isEmpty()) {

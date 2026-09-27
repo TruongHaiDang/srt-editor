@@ -35,7 +35,7 @@ project/
 Ubuntu packages:
 
 ```bash
-sudo apt update && sudo apt install -y build-essential cmake qt6-base-dev qt6-tools-dev
+sudo apt update && sudo apt install -y build-essential cmake qt6-base-dev qt6-multimedia-dev qt6-tools-dev
 ```
 
 ---

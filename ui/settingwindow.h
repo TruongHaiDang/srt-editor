@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QtCore/QBuffer>
 #include <QtCore/QPoint>
 #include <QtWidgets/QDialog>
 #include <QtWidgets/QLineEdit>
@@ -24,6 +25,8 @@
 #include <QtWidgets/QTextEdit>
 #include <QtWidgets/QVBoxLayout>
 
+class QAudioOutput;
+class QBuffer;
 class QComboBox;
 class QEvent;
 class QFrame;
@@ -31,6 +34,7 @@ class QGridLayout;
 class QHBoxLayout;
 class QLabel;
 class QListWidget;
+class QMediaPlayer;
 class QPushButton;
 class QSlider;
 class QStackedWidget;
@@ -64,11 +68,14 @@ private:
     void buildSidebar(QWidget& parent, QHBoxLayout& contentLayout);
     void buildSettingsPanel(QWidget& parent, QHBoxLayout& contentLayout);
     void buildActionBar(QVBoxLayout& rootLayout);
+    void buildProviderSelector(QVBoxLayout& panelLayout);
     void applyStyle();
     void loadSettings();
     void saveSettings() const;
 
     void addElevenLabsSection(QGridLayout& formLayout, QWidget& parent, int& row);
+    void addZaloSection(QGridLayout& formLayout, QWidget& parent, int& row);
+    void addZaloPreviewSection(QGridLayout& formLayout, QWidget& parent, int& row);
     void addOpenAISection(QGridLayout& formLayout, QWidget& parent, int& row);
     void addVoiceOverridesSection(QGridLayout& formLayout, QWidget& parent, int& row);
     void addProcessingSection(QGridLayout& formLayout, QWidget& parent, int& row);
@@ -89,11 +96,23 @@ private:
     void browseOutputFolder();
     void testElevenLabsConnection();
     void loadElevenLabsVoices();
+    void playElevenLabsPreview();
+    void playZaloPreview();
+    void updateProviderSummary();
 
     QWidget* titleBar_ = nullptr;
+    QListWidget* sidebar_ = nullptr;
     QStackedWidget* settingsStack_ = nullptr;
+    QComboBox* providerComboBox_ = nullptr;
+    QLabel* providerSummaryLabel_ = nullptr;
     QLineEdit* apiKeyEdit_ = nullptr;
     QLineEdit* openAiApiKeyEdit_ = nullptr;
+    QLineEdit* zaloApiKeyEdit_ = nullptr;
+    QComboBox* zaloSpeakerComboBox_ = nullptr;
+    QSlider* zaloSpeedSlider_ = nullptr;
+    QComboBox* zaloOutputFormatComboBox_ = nullptr;
+    QTextEdit* zaloPreviewTextEdit_ = nullptr;
+    QPushButton* playZaloPreviewButton_ = nullptr;
     QComboBox* modelComboBox_ = nullptr;
     QComboBox* voiceComboBox_ = nullptr;
     QComboBox* outputFormatComboBox_ = nullptr;
@@ -106,5 +125,9 @@ private:
     QLineEdit* maxCharsEdit_ = nullptr;
     QLineEdit* delayEdit_ = nullptr;
     QTextEdit* previewTextEdit_ = nullptr;
+    QPushButton* playPreviewButton_ = nullptr;
+    QMediaPlayer* previewPlayer_ = nullptr;
+    QAudioOutput* previewAudioOutput_ = nullptr;
+    QBuffer* previewAudioBuffer_ = nullptr;
     QPoint dragPosition_;
 };

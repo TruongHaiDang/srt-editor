@@ -37,9 +37,24 @@ QPushButton#ttsCloseButton:pressed {
 }
 
 QWidget#ttsContent,
+QWidget#ttsSettingsContainer,
 QWidget#ttsSettingsPanel,
 QScrollArea#ttsSettingsScrollArea {
     background: #f0f0f0;
+}
+
+QWidget#ttsProviderSelector {
+    background: #ffffff;
+    border-bottom: 1px solid #c0c0c0;
+}
+
+QLabel#ttsProviderLabel {
+    color: #1a1c1c;
+    font-weight: 700;
+}
+
+QLabel#ttsProviderSummary {
+    color: #5b6470;
 }
 
 QListWidget#ttsSidebar {

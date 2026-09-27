@@ -17,6 +17,7 @@ set(CMAKE_AUTORCC ON)
 find_package(Qt6 REQUIRED COMPONENTS
     Core
     Gui
+    Multimedia
     Widgets
 )
 
@@ -43,6 +44,7 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
         CURL::libcurl
         Qt6::Core
         Qt6::Gui
+        Qt6::Multimedia
         Qt6::Widgets
 )
 
