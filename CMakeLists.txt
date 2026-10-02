@@ -28,6 +28,14 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(CURL_USE_LIBPSL OFF CACHE BOOL "" FORCE)
 set(CURL_DISABLE_TESTS ON CACHE BOOL "" FORCE)
 set(CURL_DISABLE_INSTALL ON CACHE BOOL "" FORCE)
+set(HTTP_ONLY ON CACHE BOOL "" FORCE)
+set(USE_LIBIDN2 OFF CACHE BOOL "" FORCE)
+set(CURL_USE_LIBSSH2 OFF CACHE BOOL "" FORCE)
+
+if(APPLE)
+    set(CURL_USE_OPENSSL OFF CACHE BOOL "" FORCE)
+    set(CURL_USE_SECTRANSP ON CACHE BOOL "" FORCE)
+endif()
 
 FetchContent_Declare(
     curl
@@ -37,7 +45,31 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(curl)
 
-qt_add_executable(${CMAKE_PROJECT_NAME} resources.qrc)
+set(APP_SOURCES resources.qrc)
+
+if(APPLE)
+    set(MACOS_APP_ICON_NAME "SubtitleEditFree.icns")
+    set(MACOS_APP_ICON "${CMAKE_CURRENT_SOURCE_DIR}/assets/${MACOS_APP_ICON_NAME}")
+    set_source_files_properties(${MACOS_APP_ICON} PROPERTIES
+        MACOSX_PACKAGE_LOCATION "Resources"
+    )
+    list(APPEND APP_SOURCES ${MACOS_APP_ICON})
+endif()
+
+qt_add_executable(${CMAKE_PROJECT_NAME}
+    MACOSX_BUNDLE
+    ${APP_SOURCES}
+)
+
+if(APPLE)
+    set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES
+        MACOSX_BUNDLE_BUNDLE_NAME "SubtitleEdit Free"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "com.truonghaidang.subtitleeditfree"
+        MACOSX_BUNDLE_ICON_FILE "${MACOS_APP_ICON_NAME}"
+        MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+    )
+endif()
 
 target_link_libraries(${CMAKE_PROJECT_NAME}
     PRIVATE
