@@ -3,6 +3,7 @@
 #include "elevenlabs.h"
 #include "translator.h"
 #include "zalo.h"
+#include "openai.h"
 
 #include <QtCore/QDir>
 #include <QtCore/QDateTime>
@@ -14,6 +15,10 @@
 #include <QtCore/QRegularExpression>
 #include <QtCore/QSettings>
 #include <QtCore/QThread>
+#include <QtCore/QEventLoop>
+#include <QtCore/QTimer>
+#include <QtGui/QCloseEvent>
+#include <QtWidgets/QProgressBar>
 #include <QtCore/QUuid>
 #include <QtWidgets/QDialog>
 #include <QtWidgets/QDialogButtonBox>
@@ -30,6 +35,9 @@
 #include <qstringconverter_base.h>
 
 #include <exception>
+#include <future>
+#include <type_traits>
+#include <utility>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -37,6 +45,61 @@
 
 namespace
 {
+// Keep the GUI event loop running while synchronous provider work runs off-thread.
+// Joining before returning also keeps captured requests and clients alive on errors.
+template<typename Function>
+auto runInWorker(Function&& function)
+{
+    using Result = std::invoke_result_t<Function>;
+    std::packaged_task<Result()> task(std::forward<Function>(function));
+    auto result = task.get_future();
+    QEventLoop loop;
+    std::unique_ptr<QThread> worker(QThread::create([&task]() { task(); }));
+    QObject::connect(worker.get(), &QThread::finished, &loop, &QEventLoop::quit,
+        Qt::QueuedConnection);
+    worker->start();
+    loop.exec();
+    worker->wait();
+    return result.get();
+}
+
+// Do not allow the document to change while a batch holds row indexes/references.
+class BatchProgressDialog final : public QDialog
+{
+public:
+    BatchProgressDialog(QWidget* parent, const QString& title, int total)
+        : QDialog(parent)
+    {
+        setWindowTitle(title);
+        setWindowModality(Qt::ApplicationModal);
+        setWindowFlag(Qt::WindowCloseButtonHint, false);
+        auto* layout = new QVBoxLayout(this);
+        label_ = new QLabel(this);
+        progress_ = new QProgressBar(this);
+        progress_->setRange(0, total);
+        layout->addWidget(label_);
+        layout->addWidget(progress_);
+        resize(420, 100);
+        show();
+    }
+
+    void updateProgress(int completed, const QString& message)
+    {
+        label_->setText(message);
+        progress_->setValue(completed);
+        QApplication::processEvents();
+    }
+
+    void reject() override {} // Escape must not unlock the document mid-request.
+
+protected:
+    void closeEvent(QCloseEvent* event) override { event->ignore(); }
+
+private:
+    QLabel* label_;
+    QProgressBar* progress_;
+};
+
 constexpr int kTopBarHeight = 36;
 constexpr int kStatusBarHeight = 24;
 constexpr int kPropertiesPanelWidth = 270;
@@ -92,6 +155,7 @@ enum class TextToSpeechProvider
 {
     ElevenLabs,
     Zalo,
+    OpenAI,
 };
 constexpr double kSliderValueDivisor = 100.0;
 constexpr qint64 kInvalidAudioDurationMs = -1;
@@ -120,6 +184,8 @@ struct TextToSpeechSettings final
     int zaloSpeakerId = kDefaultZaloSpeakerId;
     int zaloSpeed = kDefaultZaloSpeed;
     int zaloEncoding = kZaloWavEncoding;
+    double openAiSpeed = 1.0;
+    QString openAiInstructions;
 };
 
 struct OpenAITranslationSettings final
@@ -180,6 +246,7 @@ QString fileExtensionForOutputFormat(const QString& outputFormat)
         return QStringLiteral("wav");
     }
 
+    if (outputFormat == "opus" || outputFormat == "aac" || outputFormat == "flac") return outputFormat;
     return QStringLiteral("audio");
 }
 
@@ -211,7 +278,7 @@ TextToSpeechSettings readTextToSpeechSettings()
     TextToSpeechSettings result;
     result.provider = provider == kZaloProvider
         ? TextToSpeechProvider::Zalo
-        : TextToSpeechProvider::ElevenLabs;
+        : provider == "openai" ? TextToSpeechProvider::OpenAI : TextToSpeechProvider::ElevenLabs;
     result.apiKey = settings.value(kApiKeySetting).toString().trimmed();
     result.voiceId = settings.value(kVoiceIdSetting).toString().trimmed();
     if (result.voiceId.isEmpty()) {
@@ -255,6 +322,22 @@ TextToSpeechSettings readTextToSpeechSettings()
         result.outputFormat = result.zaloEncoding == kZaloWavEncoding
             ? QStringLiteral("wav")
             : QStringLiteral("mp3");
+    }
+
+    if (result.provider == TextToSpeechProvider::OpenAI) {
+        settings.beginGroup(kOpenAISettingsGroup);
+        result.apiKey = settings.value(kOpenAIApiKeySetting).toString().trimmed();
+        settings.endGroup();
+        if (result.apiKey.isEmpty()) result.apiKey = qEnvironmentVariable("OPENAI_API_KEY").trimmed();
+        settings.beginGroup("tts/openai");
+        result.modelId = settings.value("model", "gpt-4o-mini-tts").toString();
+        result.voiceId = settings.value("voice", "coral").toString();
+        result.outputFormat = settings.value("outputFormat", "mp3").toString();
+        result.openAiSpeed = settings.value("speed", 100).toInt() / 100.0;
+        if (result.modelId != "tts-1" && result.modelId != "tts-1-hd")
+            result.openAiInstructions = settings.value("instructions").toString();
+        settings.endGroup();
+        result.maxCharsPerRequest = qMin(result.maxCharsPerRequest, 4096);
     }
 
     return result;
@@ -1545,6 +1628,7 @@ void MainWindow::convertRowsToSpeech(const QVector<int>& rowIndexes)
             (!voiceIsRequired || !value.voiceId.isEmpty());
     };
     const auto providerName = [](TextToSpeechProvider provider) {
+        if (provider == TextToSpeechProvider::OpenAI) return QStringLiteral("OpenAI");
         return provider == TextToSpeechProvider::Zalo
             ? QStringLiteral("Zalo AI")
             : QStringLiteral("ElevenLabs");
@@ -1590,16 +1674,21 @@ void MainWindow::convertRowsToSpeech(const QVector<int>& rowIndexes)
 
     std::unique_ptr<ElevenLabsClient> elevenLabsClient;
     std::unique_ptr<ZaloClient> zaloClient;
+    std::unique_ptr<OpenAIClient> openAiClient;
     if (settings.provider == TextToSpeechProvider::Zalo) {
         zaloClient = std::make_unique<ZaloClient>(settings.apiKey.toStdString());
+    } else if (settings.provider == TextToSpeechProvider::OpenAI) {
+        openAiClient = std::make_unique<OpenAIClient>(settings.apiKey.toStdString());
     } else {
         elevenLabsClient = std::make_unique<ElevenLabsClient>(settings.apiKey.toStdString());
     }
+    BatchProgressDialog progress(this, "Text to speech", rowIndexes.size());
     int convertedCount = 0;
     int skippedCount = 0;
     bool undoStateSaved = false;
 
     for (int index = 0; index < rowIndexes.size(); ++index) {
+        progress.updateProgress(index, QString("Processing subtitle %1 of %2...").arg(index + 1).arg(rowIndexes.size()));
         const int rowIndex = rowIndexes.at(index);
         if (rowIndex < 0 || rowIndex >= rows_.size()) {
             ++skippedCount;
@@ -1630,6 +1719,11 @@ void MainWindow::convertRowsToSpeech(const QVector<int>& rowIndexes)
             text
         );
 
+        if (QFileInfo::exists(outputPath)) {
+            ++skippedCount;
+            continue;
+        }
+
         statusLeftLabel_->setText(
             QString("Converting line %1 with %2...")
                 .arg(subtitle.index)
@@ -1648,7 +1742,7 @@ void MainWindow::convertRowsToSpeech(const QVector<int>& rowIndexes)
                     ? ZaloAudioEncoding::Wav
                     : ZaloAudioEncoding::Mp3;
 
-                const ZaloResponse synthesisResponse = zaloClient->synthesize(request);
+                const ZaloResponse synthesisResponse = runInWorker([&]() { return zaloClient->synthesize(request); });
                 if (synthesisResponse.status_code < 200 || synthesisResponse.status_code >= 300) {
                     const QString errorBody = QString::fromUtf8(
                         synthesisResponse.body.data(),
@@ -1678,7 +1772,7 @@ void MainWindow::convertRowsToSpeech(const QVector<int>& rowIndexes)
                     continue;
                 }
 
-                const ZaloResponse audioResponse = zaloClient->downloadAudio(audioUrl->toStdString());
+                const ZaloResponse audioResponse = runInWorker([&]() { return zaloClient->downloadAudio(audioUrl->toStdString()); });
                 if (audioResponse.status_code < 200 || audioResponse.status_code >= 300) {
                     QMessageBox::warning(
                         this,
@@ -1691,9 +1785,27 @@ void MainWindow::convertRowsToSpeech(const QVector<int>& rowIndexes)
                     continue;
                 }
                 audioBody = audioResponse.body;
+            } else if (settings.provider == TextToSpeechProvider::OpenAI) {
+                OpenAITextToSpeechRequest request;
+                request.text = text.toStdString();
+                request.model = settings.modelId.toStdString();
+                request.voice = settings.voiceId.toStdString();
+                request.response_format = settings.outputFormat.toStdString();
+                request.speed = settings.openAiSpeed;
+                request.instructions = settings.openAiInstructions.toStdString();
+                const OpenAIResponse response = runInWorker([&]() { return openAiClient->textToSpeech(request); });
+                if (response.status_code < 200 || response.status_code >= 300) {
+                    QMessageBox::warning(this, "Text to speech",
+                        QString("Convert line %1 with OpenAI failed. HTTP status: %2\n%3")
+                            .arg(subtitle.index).arg(response.status_code)
+                            .arg(QString::fromUtf8(response.body.data(), static_cast<qsizetype>(response.body.size())).left(500)));
+                    ++skippedCount;
+                    continue;
+                }
+                audioBody = response.body;
             } else {
                 const ElevenLabsTextToSpeechRequest request = createTextToSpeechRequest(settings, text);
-                const ElevenLabsResponse response = elevenLabsClient->textToSpeech(request);
+                const ElevenLabsResponse response = runInWorker([&]() { return elevenLabsClient->textToSpeech(request); });
                 if (response.status_code < 200 || response.status_code >= 300) {
                     const QString errorBody = QString::fromUtf8(
                         response.body.data(),
@@ -1726,7 +1838,7 @@ void MainWindow::convertRowsToSpeech(const QVector<int>& rowIndexes)
             }
 
             QFile outputFile(outputPath);
-            if (!outputFile.open(QIODevice::WriteOnly)) {
+            if (!outputFile.open(QIODevice::WriteOnly | QIODevice::NewOnly)) {
                 QMessageBox::critical(
                     this,
                     "Text to speech",
@@ -1751,7 +1863,7 @@ void MainWindow::convertRowsToSpeech(const QVector<int>& rowIndexes)
             }
 
             const QByteArray audioBytes(audioBody.data(), static_cast<qsizetype>(audioBody.size()));
-            const qint64 durationMilliseconds = calculateAudioDurationMilliseconds(audioBytes, settings.outputFormat);
+            const qint64 durationMilliseconds = runInWorker([&]() { return calculateAudioDurationMilliseconds(audioBytes, settings.outputFormat); });
             const QString updatedEndTime = addDurationToSrtStartTime(subtitle.startTime, durationMilliseconds);
             if (durationMilliseconds < 0 || updatedEndTime.isEmpty()) {
                 QMessageBox::warning(
@@ -1794,10 +1906,13 @@ void MainWindow::convertRowsToSpeech(const QVector<int>& rowIndexes)
         }
 
         if (settings.delayMs > 0 && index < rowIndexes.size() - 1) {
-            QThread::msleep(static_cast<unsigned long>(settings.delayMs));
+            QEventLoop delayLoop;
+            QTimer::singleShot(settings.delayMs, &delayLoop, &QEventLoop::quit);
+            delayLoop.exec();
         }
     }
 
+    progress.hide();
     statusLeftLabel_->setText(
         QString("Text to speech complete. Converted %1, skipped %2.")
             .arg(convertedCount)
@@ -1852,13 +1967,15 @@ void MainWindow::translateTo()
         return;
     }
 
+    BatchProgressDialog progress(this, "Translate", 1);
+    progress.updateProgress(0, "Translating subtitle...");
     statusLeftLabel_->setText(QString("Translating line %1...").arg(rows_.at(currentRow).index));
     QApplication::processEvents();
 
     try {
         OpenAITranslatorClient client(settings.apiKey.toStdString());
         const OpenAITranslatorRequest request = createOpenAITranslatorRequest(languages.value(), content);
-        const OpenAITranslatorResponse response = client.translate(request);
+        const OpenAITranslatorResponse response = runInWorker([&]() { return client.translate(request); });
 
         if (response.status_code < 200 || response.status_code >= 300) {
             const QString errorBody = QString::fromUtf8(
@@ -1943,11 +2060,13 @@ void MainWindow::translateAllTo()
     }
 
     OpenAITranslatorClient client(settings.apiKey.toStdString());
+    BatchProgressDialog progress(this, "Translate", rows_.size());
     int translatedCount = 0;
     int skippedCount = 0;
     bool undoStateSaved = false;
 
     for (int rowIndex = 0; rowIndex < rows_.size(); ++rowIndex) {
+        progress.updateProgress(rowIndex, QString("Translating subtitle %1 of %2...").arg(rowIndex + 1).arg(rows_.size()));
         const QString content = rows_.at(rowIndex).text.trimmed();
         if (content.isEmpty()) {
             ++skippedCount;
@@ -1959,7 +2078,7 @@ void MainWindow::translateAllTo()
 
         try {
             const OpenAITranslatorRequest request = createOpenAITranslatorRequest(languages.value(), content);
-            const OpenAITranslatorResponse response = client.translate(request);
+            const OpenAITranslatorResponse response = runInWorker([&]() { return client.translate(request); });
 
             if (response.status_code < 200 || response.status_code >= 300) {
                 const QString errorBody = QString::fromUtf8(
@@ -2020,6 +2139,7 @@ void MainWindow::translateAllTo()
         }
     }
 
+    progress.hide();
     statusLeftLabel_->setText(
         QString("Translate complete. Translated %1, skipped %2.")
             .arg(translatedCount)

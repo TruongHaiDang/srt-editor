@@ -98,6 +98,7 @@ private:
     void loadElevenLabsVoices();
     void playElevenLabsPreview();
     void playZaloPreview();
+    void playOpenAIPreview();
     void updateProviderSummary();
 
     QWidget* titleBar_ = nullptr;
@@ -107,6 +108,13 @@ private:
     QLabel* providerSummaryLabel_ = nullptr;
     QLineEdit* apiKeyEdit_ = nullptr;
     QLineEdit* openAiApiKeyEdit_ = nullptr;
+    QComboBox* openAiModelComboBox_ = nullptr;
+    QComboBox* openAiVoiceComboBox_ = nullptr;
+    QComboBox* openAiFormatComboBox_ = nullptr;
+    QSlider* openAiSpeedSlider_ = nullptr;
+    QTextEdit* openAiInstructionsEdit_ = nullptr;
+    QTextEdit* openAiPreviewTextEdit_ = nullptr;
+    QPushButton* playOpenAiPreviewButton_ = nullptr;
     QLineEdit* zaloApiKeyEdit_ = nullptr;
     QComboBox* zaloSpeakerComboBox_ = nullptr;
     QSlider* zaloSpeedSlider_ = nullptr;

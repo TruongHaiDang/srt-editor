@@ -2,6 +2,7 @@
 
 #include "elevenlabs.h"
 #include "zalo.h"
+#include "openai.h"
 
 #include <QtCore/QJsonArray>
 #include <QtCore/QJsonDocument>
@@ -42,6 +43,7 @@ const char* kProviderSettingsGroup = "tts";
 const char* kProviderSetting = "provider";
 const char* kElevenLabsProvider = "elevenlabs";
 const char* kZaloProvider = "zalo";
+const char* kOpenAIProvider = "openai";
 const char* kZaloSettingsGroup = "tts/zalo";
 const char* kZaloApiKeySetting = "apiKey";
 const char* kZaloSpeakerIdSetting = "speakerId";
@@ -368,6 +370,7 @@ void SettingWindow::buildProviderSelector(QVBoxLayout& panelLayout)
     providerComboBox_->setMinimumWidth(180);
     providerComboBox_->addItem("ElevenLabs", kElevenLabsProvider);
     providerComboBox_->addItem("Zalo AI", kZaloProvider);
+    providerComboBox_->addItem("OpenAI", kOpenAIProvider);
     providerSummaryLabel_ = new QLabel(selector);
     providerSummaryLabel_->setObjectName("ttsProviderSummary");
 
@@ -379,7 +382,8 @@ void SettingWindow::buildProviderSelector(QVBoxLayout& panelLayout)
     connect(providerComboBox_, &QComboBox::currentIndexChanged, this, [this](int) {
         updateProviderSummary();
         if (sidebar_ != nullptr) {
-            sidebar_->setCurrentRow(providerComboBox_->currentData().toString() == kZaloProvider ? 1 : 0);
+            const QString provider = providerComboBox_->currentData().toString();
+            sidebar_->setCurrentRow(provider == kOpenAIProvider ? 3 : provider == kZaloProvider ? 1 : 0);
         }
     });
     updateProviderSummary();
@@ -527,7 +531,16 @@ void SettingWindow::loadSettings()
     settings.beginGroup(kOpenAISettingsGroup);
     if (openAiApiKeyEdit_ != nullptr) {
         openAiApiKeyEdit_->setText(settings.value(kOpenAIApiKeySetting).toString());
+        openAiApiKeyEdit_->setPlaceholderText("Uses OPENAI_API_KEY when blank");
     }
+    settings.endGroup();
+    settings.beginGroup("tts/openai");
+    restoreComboBoxValue(*openAiModelComboBox_, settings.value("model", "gpt-4o-mini-tts").toString());
+    restoreComboBoxValue(*openAiVoiceComboBox_, settings.value("voice", "coral").toString());
+    restoreComboBoxValue(*openAiFormatComboBox_, settings.value("outputFormat", "mp3").toString());
+    openAiSpeedSlider_->setValue(settings.value("speed", 100).toInt());
+    openAiInstructionsEdit_->setPlainText(settings.value("instructions").toString());
+    openAiPreviewTextEdit_->setPlainText(settings.value("previewText").toString());
     settings.endGroup();
 }
 
@@ -619,6 +632,14 @@ void SettingWindow::saveSettings() const
         settings.setValue(kOpenAIApiKeySetting, openAiApiKeyEdit_->text());
     }
     settings.endGroup();
+    settings.beginGroup("tts/openai");
+    settings.setValue("model", openAiModelComboBox_->currentText());
+    settings.setValue("voice", openAiVoiceComboBox_->currentText());
+    settings.setValue("outputFormat", openAiFormatComboBox_->currentText());
+    settings.setValue("speed", openAiSpeedSlider_->value());
+    settings.setValue("instructions", openAiInstructionsEdit_->toPlainText());
+    settings.setValue("previewText", openAiPreviewTextEdit_->toPlainText());
+    settings.endGroup();
 }
 
 void SettingWindow::addElevenLabsSection(QGridLayout& formLayout, QWidget& parent, int& row)
@@ -688,6 +709,46 @@ void SettingWindow::addOpenAISection(QGridLayout& formLayout, QWidget& parent, i
     formLayout.addWidget(createFormLabel("API Key:", parent), row, 0);
     formLayout.addWidget(openAiApiKeyEdit_, row, 1);
     ++row;
+    openAiModelComboBox_ = createComboBox({"gpt-4o-mini-tts", "tts-1", "tts-1-hd"}, parent);
+    openAiVoiceComboBox_ = createComboBox({"coral", "alloy", "ash", "ballad", "echo", "fable", "nova", "onyx", "sage", "shimmer", "verse", "marin", "cedar"}, parent);
+    openAiFormatComboBox_ = createComboBox({"mp3", "wav", "opus", "aac", "flac"}, parent);
+    for (const auto& field : {std::pair<QString, QWidget*>{"Model:", openAiModelComboBox_},
+                             {"Voice:", openAiVoiceComboBox_}, {"Output format:", openAiFormatComboBox_}}) {
+        formLayout.addWidget(createFormLabel(field.first, parent), row, 0);
+        formLayout.addWidget(field.second, row++, 1);
+    }
+    auto* speedRow = new QWidget(&parent);
+    auto* speedLayout = new QHBoxLayout(speedRow);
+    speedLayout->setContentsMargins(0, 0, 0, 0);
+    openAiSpeedSlider_ = new QSlider(Qt::Horizontal, speedRow);
+    openAiSpeedSlider_->setRange(25, 400);
+    openAiSpeedSlider_->setValue(100);
+    auto* speedLabel = new QLabel("1.00×", speedRow);
+    connect(openAiSpeedSlider_, &QSlider::valueChanged, speedLabel, [speedLabel](int value) {
+        speedLabel->setText(QString::number(value / 100.0, 'f', 2) + "×");
+    });
+    speedLayout->addWidget(openAiSpeedSlider_); speedLayout->addWidget(speedLabel);
+    formLayout.addWidget(createFormLabel("Speed:", parent), row, 0);
+    formLayout.addWidget(speedRow, row++, 1);
+    openAiInstructionsEdit_ = new QTextEdit(&parent);
+    openAiInstructionsEdit_->setFixedHeight(kPreviewHeight);
+    openAiInstructionsEdit_->setPlaceholderText("Optional voice instructions (gpt-4o-mini-tts only)");
+    formLayout.addWidget(createFormLabel("Instructions:", parent), row, 0);
+    formLayout.addWidget(openAiInstructionsEdit_, row++, 1);
+    connect(openAiModelComboBox_, &QComboBox::currentTextChanged, this, [this](const QString& model) {
+        openAiInstructionsEdit_->setEnabled(model != "tts-1" && model != "tts-1-hd");
+    });
+    openAiPreviewTextEdit_ = new QTextEdit(&parent);
+    openAiPreviewTextEdit_->setFixedHeight(kPreviewHeight);
+    openAiPreviewTextEdit_->setPlaceholderText("Enter text to preview the voice");
+    formLayout.addWidget(createFormLabel("Preview text:", parent), row, 0);
+    formLayout.addWidget(openAiPreviewTextEdit_, row++, 1);
+    playOpenAiPreviewButton_ = createButton("▷  Play Preview", parent);
+    connect(playOpenAiPreviewButton_, &QPushButton::clicked, this, &SettingWindow::playOpenAIPreview);
+    formLayout.addWidget(playOpenAiPreviewButton_, row++, 1);
+    auto* disclosure = new QLabel("This voice is AI-generated. The API key is shared with translation.", &parent);
+    disclosure->setWordWrap(true);
+    formLayout.addWidget(disclosure, row++, 0, 1, 2);
 }
 
 void SettingWindow::addZaloSection(QGridLayout& formLayout, QWidget& parent, int& row)
@@ -1007,11 +1068,8 @@ void SettingWindow::updateProviderSummary()
         return;
     }
 
-    const bool isZalo = providerComboBox_->currentData().toString() == kZaloProvider;
     providerSummaryLabel_->setText(
-        isZalo
-            ? "Convert and Convert all will use Zalo AI"
-            : "Convert and Convert all will use ElevenLabs"
+        "Convert and Convert all will use " + providerComboBox_->currentText()
     );
 }
 
@@ -1326,4 +1384,45 @@ void SettingWindow::playZaloPreview()
 
     playZaloPreviewButton_->setText("▷  Play Preview");
     playZaloPreviewButton_->setEnabled(true);
+}
+
+void SettingWindow::playOpenAIPreview()
+{
+    QString apiKey = openAiApiKeyEdit_->text().trimmed();
+    if (apiKey.isEmpty()) apiKey = qEnvironmentVariable("OPENAI_API_KEY").trimmed();
+    const QString text = openAiPreviewTextEdit_->toPlainText().trimmed();
+    if (apiKey.isEmpty() || text.isEmpty() || text.size() > 4096) {
+        QMessageBox::warning(this, "OpenAI Preview", "An API key and 1–4096 characters of preview text are required.");
+        return;
+    }
+    playOpenAiPreviewButton_->setEnabled(false);
+    playOpenAiPreviewButton_->setText("Generating...");
+    try {
+        OpenAITextToSpeechRequest request;
+        request.text = text.toStdString();
+        request.model = openAiModelComboBox_->currentText().toStdString();
+        request.voice = openAiVoiceComboBox_->currentText().toStdString();
+        request.response_format = "mp3";
+        request.speed = openAiSpeedSlider_->value() / 100.0;
+        if (openAiInstructionsEdit_->isEnabled()) request.instructions = openAiInstructionsEdit_->toPlainText().toStdString();
+        const OpenAIResponse response = OpenAIClient(apiKey.toStdString()).textToSpeech(request);
+        if (response.status_code < 200 || response.status_code >= 300) {
+            QMessageBox::warning(this, "OpenAI Preview", QString("HTTP %1\n%2").arg(response.status_code)
+                .arg(QString::fromUtf8(response.body.data(), static_cast<qsizetype>(response.body.size())).left(500)));
+        } else if (response.body.empty()) {
+            QMessageBox::warning(this, "OpenAI Preview", "OpenAI returned empty audio.");
+        } else {
+            previewPlayer_->stop();
+            previewPlayer_->setSource(QUrl());
+            previewAudioBuffer_->close();
+            previewAudioBuffer_->setData(response.body.data(), static_cast<qsizetype>(response.body.size()));
+            previewAudioBuffer_->open(QIODevice::ReadOnly);
+            previewPlayer_->setSourceDevice(previewAudioBuffer_, QUrl("preview.mp3"));
+            previewPlayer_->play();
+        }
+    } catch (const std::exception& error) {
+        QMessageBox::critical(this, "OpenAI Preview", QString::fromUtf8(error.what()));
+    }
+    playOpenAiPreviewButton_->setText("▷  Play Preview");
+    playOpenAiPreviewButton_->setEnabled(true);
 }
